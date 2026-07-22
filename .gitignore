@@ -1,0 +1,45 @@
+# Python virtual environments
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+
+# Node dependencies & builds
+node_modules/
+dist/
+dist-ssr/
+*.local
+.eslintcache
+
+# Local databases & search indices
+*.db
+*.db-journal
+chroma_db/
+.chroma/
+
+# Environment files
+.env
+.env*.local
+
+# Editor settings
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# System files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Agent system generated files
+.system_generated/
+/design/srs.md
+/design/architecture.md
+/design/pipelines.md
