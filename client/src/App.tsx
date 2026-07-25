@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
+import PageTransition from "./components/PageTransition";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
@@ -41,7 +42,9 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DashboardLayout>
-                    <Dashboard />
+                    <PageTransition>
+                      <Dashboard />
+                    </PageTransition>
                   </DashboardLayout>
                 </ProtectedRoute>
               }
@@ -51,7 +54,9 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DashboardLayout>
-                    <Search />
+                    <PageTransition>
+                      <Search />
+                    </PageTransition>
                   </DashboardLayout>
                 </ProtectedRoute>
               }
@@ -61,7 +66,9 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DashboardLayout>
-                    <BookDetails />
+                    <PageTransition>
+                      <BookDetails />
+                    </PageTransition>
                   </DashboardLayout>
                 </ProtectedRoute>
               }
@@ -71,7 +78,9 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DashboardLayout>
-                    <Shelves />
+                    <PageTransition>
+                      <Shelves />
+                    </PageTransition>
                   </DashboardLayout>
                 </ProtectedRoute>
               }
@@ -81,7 +90,9 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DashboardLayout>
-                    <LibrarianChat />
+                    <PageTransition>
+                      <LibrarianChat />
+                    </PageTransition>
                   </DashboardLayout>
                 </ProtectedRoute>
               }
@@ -91,7 +102,9 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <DashboardLayout>
-                    <AdminCatalog />
+                    <PageTransition>
+                      <AdminCatalog />
+                    </PageTransition>
                   </DashboardLayout>
                 </ProtectedRoute>
               }

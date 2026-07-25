@@ -1,10 +1,17 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 
 @theme {
   --color-background: #09090b;
   --color-foreground: #fafafa;
-  --color-primary: #10b981;
+  
+  /* Semantic Accent Colors */
+  --color-primary: #10b981; /* Primary Emerald */
+  --color-electric-blue: #3b82f6;
+  --color-violet: #8b5cf6;
+  --color-amber: #f59e0b;
+  --color-rose: #f43f5e;
+  --color-slate-gray: #18181b;
+
   --color-primary-foreground: #ffffff;
   --color-secondary: #18181b;
   --color-secondary-foreground: #fafafa;
@@ -12,78 +19,83 @@
   --color-muted-foreground: #a1a1aa;
   --color-accent: rgba(16, 185, 129, 0.15);
   --color-accent-foreground: #34d399;
-  --color-card: rgba(24, 24, 27, 0.65);
+  --color-card: rgba(20, 20, 25, 0.45);
   --color-card-foreground: #fafafa;
   --color-border: rgba(255, 255, 255, 0.08);
-  --color-input: rgba(255, 255, 255, 0.05);
-  --color-ring: rgba(16, 185, 129, 0.4);
+  --color-input: rgba(255, 255, 255, 0.03);
+  --color-ring: rgba(59, 130, 246, 0.4);
+
+  /* Typography Pairings */
+  --font-sans: "Inter", sans-serif;
+  --font-heading: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 }
 
 @utility bg-glow-emerald {
-  background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 60%);
+  background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.08) 0%, transparent 60%);
 }
 
 @utility bg-glow-indigo {
-  background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 60%);
+  background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.06) 0%, transparent 60%);
 }
 
 @utility glass-card {
   background: rgba(20, 20, 25, 0.45);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
 }
 
 @utility glass-input {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 0.75rem;
   padding: 0.625rem 1rem;
   color: #fafafa;
   outline: none;
-  transition: all 0.2s;
-}
-
-@utility glass-input-focus {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(16, 185, 129, 0.4);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+  font-family: var(--font-sans);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @layer base {
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
   }
 }
 
-/* Glass card hover transition utilities */
+/* Glass Card hover transitions supporting usability, avoiding excess flashes */
 .glass-card-hover {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-card-hover:hover {
-  background: rgba(25, 25, 30, 0.6);
-  border-color: rgba(16, 185, 129, 0.2);
-  box-shadow: 0 12px 40px 0 rgba(16, 185, 129, 0.08);
-  transform: translateY(-2px);
+  background: rgba(25, 25, 30, 0.55);
+  border-color: rgba(59, 130, 246, 0.25); /* Glows subtle electric blue on hover */
+  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.45);
+  transform: translateY(-1px);
 }
 
-/* Connect focus utility wrapper */
+/* Focused inputs glow electric blue */
 .glass-input:focus {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(16, 185, 129, 0.4);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -94,22 +106,22 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(16, 185, 129, 0.4);
+  background: rgba(59, 130, 246, 0.3);
 }
 
-/* Layout Grid Utilities */
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 240px 1fr;
+/* Page transitions indicator */
+.route-fade-enter {
+  opacity: 0;
+  transform: translateY(4px);
 }
 
-@media (max-width: 768px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
+.route-fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
 }

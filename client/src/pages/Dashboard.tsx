@@ -1,14 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import ApiClient from "../services/api";
-import { BookOpen, Flame, Trophy, Award, RefreshCw, Compass, Clock, Star } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
+import { 
+  Flame, Trophy, Award, RefreshCw, 
+  Search, Sparkles, Clock, Star, Compass, ChevronRight 
+} from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
+import { useAuth } from "../context/AuthContext";
 
 interface Book {
   id: number;
   title: string;
   cover_url: string;
   rating: number;
+  pages: number;
   author?: { name: string };
   genres?: { name: string }[];
 }
@@ -19,20 +24,22 @@ interface Analytics {
   average_rating: number;
   genre_distribution: { genre: string; count: number }[];
   monthly_activity: { month: string; count: number }[];
-  reading_streak: { current_streak: int; longest_streak: int; last_activity_date: string };
+  reading_streak: { current_streak: number; longest_streak: number; last_activity_date: string };
 }
 
-// Bypassing TS parameter type conflicts
-type int = number;
+export default function Dashboard() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-const COLORS = ["#10b981", "#3b82f6", "#6366f1", "#a855f7", "#ec4899", "#f59e0b"];
-
-const Dashboard: React.FC = () => {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [recommendations, setRecommendations] = useState<Book[]>([]);
   const [currentlyReading, setCurrentlyReading] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [recalculating, setRecalculating] = useState<boolean>(false);
+
+  // Quick Action States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [aiQuestion, setAiQuestion] = useState("");
 
   const fetchData = async () => {
     try {
@@ -59,7 +66,6 @@ const Dashboard: React.FC = () => {
     setRecalculating(true);
     try {
       await ApiClient.post("/recommendations/recalculate", {});
-      // Fetch updated list after trigger delay
       setTimeout(async () => {
         const recsData = await ApiClient.get("/recommendations/");
         setRecommendations(recsData);
@@ -74,275 +80,344 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-zinc-400">
-        <div className="relative w-12 h-12 mb-4">
-          <div className="absolute inset-0 rounded-full border-2 border-primary/20"></div>
-          <div className="absolute inset-0 rounded-full border-2 border-t-primary animate-spin"></div>
-        </div>
-        <p className="text-sm font-medium tracking-wide">Synthesizing Analytics...</p>
+        <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+        <p className="text-xs font-semibold tracking-wider text-zinc-500 animate-pulse">Syncing Workspace...</p>
       </div>
     );
   }
 
-  // Fallback structures if analytics array is blank
-  const genreChartData = analytics?.genre_distribution.slice(0, 5).map((item) => ({
-    name: item.genre,
-    value: item.count
-  })) || [];
-
   const activityChartData = analytics?.monthly_activity || [];
 
+  // Deterministic mock progress helper for currently reading books
+  const getProgressDetails = (bookId: number, totalPages: number) => {
+    const percent = Math.min(85, Math.max(15, ((bookId * 19) % 70) + 15));
+    const pagesRead = Math.round((percent / 100) * (totalPages || 300));
+    return { percent, pagesRead };
+  };
+
   return (
-    <div className="space-y-8 pb-10">
-      {/* Welcome Block */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-6">
+    <div className="space-y-8 pb-16">
+      
+      {/* 1. Welcome Banner Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/5 pb-6">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white mb-1">My Dashboard</h1>
-          <p className="text-zinc-500 text-sm">Review your achievements, reading analytics, and AI recommendations</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white mb-1.5">
+            Welcome back, {user?.full_name || "Reader"} 👋
+          </h1>
+          <p className="text-sm text-zinc-400">
+            Continue your reading journey. Discover your next favorite book.
+          </p>
         </div>
         <button
           onClick={handleRecalculate}
           disabled={recalculating}
-          className="glass-card hover:bg-white/5 border border-white/5 text-zinc-300 font-semibold px-4 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors disabled:opacity-50 text-xs self-start"
+          className="px-4 py-2.5 rounded-xl border border-white/5 bg-white/2 hover:bg-white/5 text-zinc-300 text-xs font-semibold flex items-center gap-2 transition disabled:opacity-50 cursor-pointer self-start"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${recalculating ? "animate-spin text-primary" : "text-zinc-400"}`} />
-          <span>{recalculating ? "Syncing..." : "Sync AI Recommender"}</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${recalculating ? "animate-spin text-emerald-400" : "text-zinc-500"}`} />
+          <span>{recalculating ? "Recalculating..." : "Sync AI Recommender"}</span>
         </button>
       </div>
 
-      {/* Grid: Totals Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Streak */}
-        <div className="glass-card rounded-xl p-5 flex items-center gap-4 relative overflow-hidden">
-          <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
-            <Flame className="w-6 h-6 text-orange-500" />
+      {/* 2. Quick Action Workspace Console */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Search Input Card */}
+        <div className="glass-card border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-electric-blue/10 flex items-center justify-center shrink-0">
+            <Search className="w-4 h-4 text-electric-blue" />
           </div>
-          <div>
-            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Reading Streak</p>
-            <p className="text-xl font-bold text-white mt-0.5">
-              {analytics?.reading_streak.current_streak || 0} <span className="text-xs font-normal text-zinc-400">days</span>
-            </p>
-            <p className="text-[10px] text-zinc-600 mt-0.5">Longest: {analytics?.reading_streak.longest_streak || 0} days</p>
-          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && navigate(`/search?q=${encodeURIComponent(searchQuery)}`)}
+            placeholder="Search Books by Title, Author, or ISBN..."
+            className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
+          />
         </div>
 
-        {/* Books Read */}
-        <div className="glass-card rounded-xl p-5 flex items-center gap-4 relative overflow-hidden">
-          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-            <BookOpen className="w-6 h-6 text-primary" />
+        {/* Ask AI Input Card */}
+        <div className="glass-card border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-emerald-400" />
           </div>
-          <div>
-            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Completed Books</p>
-            <p className="text-xl font-bold text-white mt-0.5">
-              {analytics?.total_books_read || 0} <span className="text-xs font-normal text-zinc-400">books</span>
-            </p>
-            <p className="text-[10px] text-zinc-650 mt-0.5">Keep reading to set new records!</p>
-          </div>
-        </div>
-
-        {/* Pages Read */}
-        <div className="glass-card rounded-xl p-5 flex items-center gap-4 relative overflow-hidden">
-          <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
-            <Trophy className="w-6 h-6 text-blue-500" />
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Pages Finished</p>
-            <p className="text-xl font-bold text-white mt-0.5">
-              {analytics?.total_pages_read || 0} <span className="text-xs font-normal text-zinc-400">pages</span>
-            </p>
-            <p className="text-[10px] text-zinc-600 mt-0.5">Outstanding milestone achieved</p>
-          </div>
-        </div>
-
-        {/* Average Rating */}
-        <div className="glass-card rounded-xl p-5 flex items-center gap-4 relative overflow-hidden">
-          <div className="w-12 h-12 rounded-lg bg-yellow-500/10 flex items-center justify-center">
-            <Award className="w-6 h-6 text-yellow-500" />
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">My Avg Rating</p>
-            <p className="text-xl font-bold text-white mt-0.5">
-              {analytics?.average_rating || 0.0} <span className="text-xs font-normal text-zinc-400">/ 5.0</span>
-            </p>
-            <p className="text-[10px] text-zinc-600 mt-0.5">Across all reviewed books</p>
-          </div>
+          <input
+            type="text"
+            value={aiQuestion}
+            onChange={(e) => setAiQuestion(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && navigate(`/chat?question=${encodeURIComponent(aiQuestion)}`)}
+            placeholder="Ask Aetheria anything (e.g. Recommend focus books)..."
+            className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
+          />
         </div>
       </div>
 
-      {/* Grid: Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart: Activity */}
-        <div className="glass-card rounded-xl p-6 lg:col-span-2 flex flex-col justify-between">
-          <div className="mb-4">
-            <h3 className="text-sm font-bold text-white tracking-wide uppercase">Reading Velocity</h3>
-            <p className="text-xs text-zinc-500">Number of books completed month over month</p>
-          </div>
-          <div className="h-64 w-full">
-            {activityChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={activityChartData}>
-                  <XAxis dataKey="month" stroke="#52525b" fontSize={11} tickLine={false} />
-                  <YAxis stroke="#52525b" fontSize={11} tickLine={false} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px" }}
-                    labelStyle={{ color: "#fafafa" }}
-                  />
-                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={30} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-zinc-600 text-xs">
-                No monthly data found. Complete books to view velocity.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Chart: Genres */}
-        <div className="glass-card rounded-xl p-6 flex flex-col justify-between">
-          <div className="mb-4">
-            <h3 className="text-sm font-bold text-white tracking-wide uppercase">Genre Distribution</h3>
-            <p className="text-xs text-zinc-500">Categories of books completed</p>
-          </div>
-          <div className="h-64 w-full flex items-center justify-center">
-            {genreChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={genreChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {genreChartData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px" }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="text-zinc-600 text-xs text-center">
-                Add books to your Completed shelf to map genre breakdowns.
-              </div>
-            )}
-          </div>
-          {genreChartData.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {genreChartData.map((item, idx) => (
-                <div key={item.name} className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
-                  <span className="truncate">{item.name} ({item.value})</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Grid: Currently Reading & Recommendations */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Currently Reading (Shelf) */}
-        <div className="glass-card rounded-xl p-6 flex flex-col justify-between h-fit lg:col-span-1">
-          <div className="mb-4">
-            <h3 className="text-sm font-bold text-white tracking-wide uppercase flex items-center gap-2">
+      {/* 3. Main Dashboard Workspace Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Left Column (2/3 width) */}
+        <div className="lg:col-span-2 space-y-8">
+          
+          {/* Continue Reading Section */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <Clock className="w-4 h-4 text-zinc-400" />
-              <span>Currently Reading</span>
+              Continue Reading
             </h3>
-            <p className="text-xs text-zinc-500">Keep up the pace on your current shelves</p>
-          </div>
-
-          <div className="space-y-3.5 max-h-[300px] overflow-y-auto pr-1">
+            
             {currentlyReading.length > 0 ? (
-              currentlyReading.map((item) => (
-                <Link
-                  key={item.id}
-                  to={`/books/${item.book?.id}`}
-                  className="flex gap-3 p-2.5 rounded-lg bg-white/3 border border-white/3 hover:border-primary/20 transition-all group"
-                >
-                  <img
-                    src={item.book?.cover_url || "https://placehold.co/80x120?text=Book"}
-                    alt={item.book?.title}
-                    className="w-12 h-18 object-cover rounded shadow"
-                  />
-                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <h4 className="text-xs font-bold text-white group-hover:text-primary transition-colors truncate">
-                      {item.book?.title}
-                    </h4>
-                    <p className="text-[10px] text-zinc-400 truncate mt-0.5">
-                      by {item.book?.author?.name || "Unknown Author"}
-                    </p>
-                    <p className="text-[9px] text-zinc-500 mt-2 italic capitalize">
-                      Added: {new Date(item.added_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </Link>
-              ))
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {currentlyReading.map((item) => {
+                  const book = item.book;
+                  if (!book) return null;
+                  const { percent, pagesRead } = getProgressDetails(book.id, book.pages);
+                  return (
+                    <div 
+                      key={item.id} 
+                      className="glass-card rounded-2xl border border-white/5 p-4 flex gap-4 hover:border-white/10 transition group"
+                    >
+                      <img 
+                        src={book.cover_url || "https://placehold.co/80x120?text=Book"} 
+                        alt={book.title} 
+                        className="w-14 h-20 object-cover rounded-lg shadow-md shrink-0"
+                      />
+                      <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                        <div>
+                          <h4 className="text-xs font-bold text-white truncate group-hover:text-emerald-400 transition-colors">
+                            {book.title}
+                          </h4>
+                          <p className="text-[10px] text-zinc-400 truncate mt-0.5">
+                            by {book.author?.name || "Unknown Author"}
+                          </p>
+                        </div>
+                        
+                        {/* Progress Bar */}
+                        <div className="space-y-1.5 mt-2">
+                          <div className="flex justify-between text-[9px] text-zinc-500 font-semibold">
+                            <span>{pagesRead} of {book.pages || 300} pages</span>
+                            <span className="text-emerald-400">{percent}%</span>
+                          </div>
+                          <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-emerald-400 rounded-full transition-all duration-300"
+                              style={{ width: `${percent}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
-              <div className="text-center py-8 text-zinc-600 text-xs border border-dashed border-white/5 rounded-lg flex flex-col items-center justify-center gap-2">
-                <Compass className="w-6 h-6 text-zinc-700" />
-                <span>No books shelf-active. Find a book to start!</span>
-                <Link to="/search" className="text-[10px] text-primary font-semibold mt-2 hover:underline">
-                  Browse Catalog
+              <div className="text-center py-10 text-zinc-600 text-xs border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/1">
+                <Compass className="w-6 h-6 text-zinc-700 animate-pulse" />
+                <span>No active books on your reading list.</span>
+                <Link to="/search" className="text-[10px] text-emerald-400 font-bold hover:underline mt-1">
+                  Discover Books
                 </Link>
               </div>
             )}
           </div>
-        </div>
 
-        {/* AI Recommendations */}
-        <div className="glass-card rounded-xl p-6 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-white tracking-wide uppercase flex items-center gap-2">
-                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500/25" />
-                <span>AI Recommended For You</span>
-              </h3>
-              <p className="text-xs text-zinc-500">Personalized matching based on habits and history</p>
+          {/* Trending Carousel */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              Trending Now
+            </h3>
+            <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scrollbar-thin">
+              {recommendations.length > 0 ? (
+                recommendations.map((book) => (
+                  <Link
+                    key={book.id}
+                    to={`/books/${book.id}`}
+                    className="flex-none w-36 glass-card rounded-2xl border border-white/5 p-3 hover:border-white/10 hover:bg-white/2 transition group"
+                  >
+                    <div className="aspect-[2/3] w-full overflow-hidden rounded-xl shadow mb-3 relative">
+                      <img 
+                        src={book.cover_url || "https://placehold.co/100x150?text=Cover"} 
+                        alt={book.title} 
+                        className="w-full h-full object-cover group-hover:scale-102 transition duration-300"
+                      />
+                      <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur border border-white/5 text-[8px] font-bold text-emerald-400">
+                        94% Match
+                      </div>
+                    </div>
+                    <h4 className="text-xs font-bold text-white truncate group-hover:text-emerald-400 transition-colors">
+                      {book.title}
+                    </h4>
+                    <p className="text-[10px] text-zinc-500 truncate mt-0.5">
+                      {book.author?.name || "Unknown"}
+                    </p>
+                  </Link>
+                ))
+              ) : (
+                <div className="w-full text-center py-10 text-zinc-650 text-xs border border-dashed border-white/5 rounded-2xl">
+                  Catalog records loading...
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {recommendations.length > 0 ? (
-              recommendations.slice(0, 3).map((book) => (
+          {/* AI Recommended Grid */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <Star className="w-4 h-4 text-emerald-400" />
+              Recommended For You
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {recommendations.slice(0, 3).map((book) => (
                 <Link
                   key={book.id}
                   to={`/books/${book.id}`}
-                  className="group flex flex-col p-2.5 rounded-xl bg-white/2 border border-white/2 hover:border-primary/20 transition-all hover:bg-white/4"
+                  className="glass-card rounded-2xl border border-white/5 p-3 hover:border-white/10 hover:bg-white/2 transition group flex flex-col justify-between"
                 >
-                  <div className="aspect-[2/3] w-full overflow-hidden rounded shadow-lg relative mb-3">
-                    <img
-                      src={book.cover_url || "https://placehold.co/120x180?text=Cover"}
-                      alt={book.title}
-                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                    />
+                  <div>
+                    <div className="aspect-[2/3] w-full overflow-hidden rounded-xl shadow mb-3 relative">
+                      <img 
+                        src={book.cover_url || "https://placehold.co/100x150?text=Cover"} 
+                        alt={book.title} 
+                        className="w-full h-full object-cover group-hover:scale-102 transition duration-300"
+                      />
+                    </div>
+                    <h4 className="text-xs font-bold text-white truncate group-hover:text-emerald-400 transition-colors">
+                      {book.title}
+                    </h4>
+                    <p className="text-[10px] text-zinc-400 truncate mt-0.5">
+                      by {book.author?.name || "Unknown"}
+                    </p>
                   </div>
-                  <h4 className="text-xs font-bold text-white truncate group-hover:text-primary transition-colors">
-                    {book.title}
-                  </h4>
-                  <p className="text-[10px] text-zinc-500 truncate mt-0.5">
-                    {book.author?.name || "Unknown"}
-                  </p>
-                  <div className="flex items-center gap-1 mt-2 text-[9px] text-yellow-500 font-semibold">
-                    <Star className="w-3 h-3 fill-yellow-500/10" />
-                    <span>{book.rating || "New"}</span>
+                  <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/5 text-[9px] text-zinc-500 font-semibold">
+                    <span className="flex items-center gap-0.5 text-yellow-500">
+                      <Star className="w-3 h-3 fill-yellow-500/10" />
+                      {book.rating || "New"}
+                    </span>
+                    <span className="flex items-center gap-1 hover:text-white transition">
+                      Details <ChevronRight className="w-3 h-3" />
+                    </span>
                   </div>
                 </Link>
-              ))
-            ) : (
-              <div className="col-span-3 text-center py-10 text-zinc-600 text-xs border border-dashed border-white/5 rounded-lg flex flex-col items-center justify-center gap-2">
-                <span>Recommendations will appear as you build shelves and review books.</span>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
+
         </div>
+
+        {/* Right Column: Analytics & Goals (1/3 width) */}
+        <div className="space-y-8">
+          
+          {/* Streak & Pages Read stats */}
+          <div className="glass-card border border-white/5 rounded-2xl p-5 space-y-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Reading Analytics</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Streak */}
+              <div className="bg-white/2 border border-white/5 rounded-xl p-3 flex flex-col justify-between">
+                <Flame className="w-5 h-5 text-orange-500 mb-2" />
+                <div>
+                  <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider block">Streak</span>
+                  <span className="text-lg font-extrabold text-white mt-0.5 block">
+                    {analytics?.reading_streak.current_streak || 0} <span className="text-xs font-normal text-zinc-500">days</span>
+                  </span>
+                </div>
+              </div>
+              {/* Pages */}
+              <div className="bg-white/2 border border-white/5 rounded-xl p-3 flex flex-col justify-between">
+                <Trophy className="w-5 h-5 text-emerald-400 mb-2" />
+                <div>
+                  <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider block">Pages Read</span>
+                  <span className="text-lg font-extrabold text-white mt-0.5 block">
+                    {analytics?.total_pages_read || 0} <span className="text-xs font-normal text-zinc-500">pgs</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Velocity chart */}
+            <div className="h-44 w-full mt-4">
+              {activityChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={activityChartData}>
+                    <XAxis dataKey="month" stroke="#52525b" fontSize={9} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ background: "#09090b", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px" }}
+                      labelStyle={{ color: "#fafafa", fontSize: "10px" }}
+                      itemStyle={{ fontSize: "10px" }}
+                    />
+                    <Bar dataKey="count" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={20} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-zinc-650 text-[10px]">
+                  No velocity data populated.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Daily Goal Progress (SVG Ring) */}
+          <div className="glass-card border border-white/5 rounded-2xl p-5 flex flex-col items-center justify-between text-center gap-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider self-start">Reading Goal</h3>
+            
+            <div className="relative w-24 h-24 flex items-center justify-center">
+              {/* SVG circular track */}
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.04)" strokeWidth="6" fill="transparent" />
+                <circle 
+                  cx="48" 
+                  cy="48" 
+                  r="40" 
+                  stroke="#10b981" 
+                  strokeWidth="6" 
+                  fill="transparent" 
+                  strokeDasharray="251.2"
+                  strokeDashoffset="83.7" // Simulated 66% completed
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center">
+                <span className="text-lg font-black text-white">20</span>
+                <span className="text-[9px] text-zinc-500 uppercase tracking-wider font-semibold">of 30 min</span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-white">Daily Target: 30 minutes</p>
+              <p className="text-[10px] text-zinc-500">Read 10 more minutes to hit your streak target today!</p>
+            </div>
+          </div>
+
+          {/* Achievements badge list */}
+          <div className="glass-card border border-white/5 rounded-2xl p-5 space-y-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Award className="w-4 h-4 text-emerald-400" />
+              Achievements
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 flex items-center justify-center shrink-0">
+                  <Flame className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">Consummate Reader</p>
+                  <p className="text-[9px] text-zinc-500">Complete 3 consecutive streak days</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                  <Trophy className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">Pages Pioneer</p>
+                  <p className="text-[9px] text-zinc-500">Exceed 1,000 completed reading pages</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
       </div>
+
     </div>
   );
-};
-
-export default Dashboard;
+}

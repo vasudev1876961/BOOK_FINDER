@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ApiClient from "../services/api";
 import { 
   Search as SearchIcon, Star, BookOpen, Layers, 
   Sparkles, History, RotateCcw, X, CheckSquare, 
-  HelpCircle, ArrowRightLeft, BookMarked
+  HelpCircle, ArrowRightLeft, BookMarked, Command
 } from "lucide-react";
 
 interface Book {
@@ -22,6 +22,8 @@ interface SearchHit {
 }
 
 export default function Search() {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   // Search Form State
   const [titleQuery, setTitleQuery] = useState("");
   const [authorQuery, setAuthorQuery] = useState("");
@@ -44,6 +46,18 @@ export default function Search() {
   const [loadingComparison, setLoadingComparison] = useState(false);
 
   const availableGenres = ["Self-Help", "Business", "Tech", "Psychology", "Fantasy", "Sci-Fi", "History", "Biography", "Mystery", "Fiction", "Education"];
+
+  // Handle Ctrl+K shortcut to focus search input
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Load recent searches
   useEffect(() => {
@@ -100,6 +114,21 @@ export default function Search() {
     } finally {
       setSearching(false);
     }
+  };
+
+  // Quick filter chips click handler
+  const handleQuickFilter = (type: "rating" | "pages" | "genre-tech" | "genre-self") => {
+    if (type === "rating") {
+      setMinRating(4.0);
+    } else if (type === "pages") {
+      setMaxPages(300);
+    } else if (type === "genre-tech") {
+      setSelectedGenres((prev) => prev.includes("Tech") ? prev : [...prev, "Tech"]);
+    } else if (type === "genre-self") {
+      setSelectedGenres((prev) => prev.includes("Self-Help") ? prev : [...prev, "Self-Help"]);
+    }
+    // Fire search directly with current input
+    setTimeout(() => handleSearch(), 50);
   };
 
   const handleReset = () => {
@@ -180,9 +209,15 @@ export default function Search() {
         <div className="lg:col-span-2 space-y-6">
           <div className="glass-card border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden">
             
-            <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2 border-b border-white/5 pb-3">
-              <Sparkles className="w-5 h-5 text-emerald-400" />
-              Compare & Discover Books
+            <h2 className="text-lg font-bold text-white mb-6 flex items-center justify-between border-b border-white/5 pb-3">
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-emerald-400" />
+                Compare & Discover Books
+              </span>
+              <span className="text-[10px] text-zinc-500 font-normal flex items-center gap-1 bg-white/2 border border-white/5 px-2 py-1 rounded-lg">
+                <Command className="w-3 h-3" />
+                <span>K to focus</span>
+              </span>
             </h2>
 
             <div className="space-y-4">
@@ -190,13 +225,17 @@ export default function Search() {
                 {/* Title */}
                 <div>
                   <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Book Title</label>
-                  <input 
-                    type="text" 
-                    value={titleQuery}
-                    onChange={(e) => setTitleQuery(e.target.value)}
-                    placeholder="e.g. Atomic Habits" 
-                    className="w-full glass-input text-sm"
-                  />
+                  <div className="relative">
+                    <input 
+                      ref={searchInputRef}
+                      type="text" 
+                      value={titleQuery}
+                      onChange={(e) => setTitleQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                      placeholder="e.g. Atomic Habits" 
+                      className="w-full glass-input text-sm"
+                    />
+                  </div>
                 </div>
                 {/* Author */}
                 <div>
@@ -209,6 +248,58 @@ export default function Search() {
                     className="w-full glass-input text-sm"
                   />
                 </div>
+              </div>
+
+              {/* Quick Filter Chips */}
+              <div className="flex flex-wrap gap-2 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleQuickFilter("rating")}
+                  className={`px-3 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer ${
+                    minRating === 4.0 
+                      ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" 
+                      : "border-white/5 bg-white/2 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Star className="w-3 h-3 text-yellow-500" />
+                  ⭐ 4.0+ Rating
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickFilter("pages")}
+                  className={`px-3 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer ${
+                    maxPages === 300 
+                      ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" 
+                      : "border-white/5 bg-white/2 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <BookOpen className="w-3 h-3 text-zinc-400" />
+                  📖 Short Reads (&lt;300 pgs)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickFilter("genre-tech")}
+                  className={`px-3 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer ${
+                    selectedGenres.includes("Tech") 
+                      ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" 
+                      : "border-white/5 bg-white/2 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Layers className="w-3 h-3 text-zinc-400" />
+                  💻 Tech Category
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickFilter("genre-self")}
+                  className={`px-3 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer ${
+                    selectedGenres.includes("Self-Help") 
+                      ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" 
+                      : "border-white/5 bg-white/2 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3 text-zinc-400" />
+                  💡 Self-Help
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -410,7 +501,7 @@ export default function Search() {
 
       {/* Comparative Drawer floating activator */}
       {selectedForComparison.length === 2 && (
-        <div className="fixed bottom-6 right-6 z-40 bg-zinc-900/90 border border-white/10 rounded-2xl p-4 shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5">
+        <div className="fixed bottom-6 right-6 z-40 bg-[#09090b]/90 border border-white/10 rounded-2xl p-4 shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5">
           <div className="text-xs text-zinc-300">
             Compare <span className="text-emerald-400 font-bold">2 Selected Books</span> side-by-side
           </div>
@@ -427,7 +518,7 @@ export default function Search() {
       {/* Comparison Modal Overlay */}
       {(loadingComparison || comparisonDossier) && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="glass-card w-full max-w-3xl rounded-2xl border border-white/10 shadow-2xl relative p-8 max-h-[90vh] overflow-y-auto">
+          <div className="glass-card w-full max-w-3xl rounded-2xl border border-white/10 shadow-2xl relative p-8 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
             <button
               onClick={() => { setComparisonDossier(null); setLoadingComparison(false); }}
               className="absolute right-4 top-4 p-2 text-zinc-400 hover:text-white rounded-lg transition cursor-pointer"
@@ -456,11 +547,6 @@ export default function Search() {
 
       {/* Results Area */}
       <div className="space-y-4">
-        {error && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
-            {error}
-          </div>
-        )}
         {results.length > 0 && (
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">Search Results ({results.length})</h3>
@@ -468,8 +554,14 @@ export default function Search() {
           </div>
         )}
 
+        {error && (
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            {error}
+          </div>
+        )}
+
         {results.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in-50 duration-300">
             {results.map((hit) => {
               const book = hit.book;
               const isChecked = selectedForComparison.includes(book.id);
@@ -486,7 +578,7 @@ export default function Search() {
                       <img
                         src={book.cover_url || "https://placehold.co/150x225?text=No+Cover"}
                         alt={book.title}
-                        className="w-full h-full object-cover transition duration-500 group-hover:scale-103"
+                        className="w-full h-full object-cover transition duration-500 group-hover:scale-102"
                       />
                       
                       {/* Checkbox Overlay for Comparison */}
