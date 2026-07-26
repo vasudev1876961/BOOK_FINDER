@@ -19,6 +19,29 @@ except ImportError:
 class SearchPipeline:
     def __init__(self):
         self.vocabulary = set()
+        self.synonyms = {
+            "craftsmanship": ["clean", "design", "refactoring", "practices"],
+            "focus": ["attention", "distractions", "productivity", "deep"],
+            "success": ["habits", "routine", "behavior", "atomic"],
+            "productivity": ["efficiency", "focus", "deep"],
+            "habit": ["routine", "behavior", "atomic"],
+            "ai": ["artificial", "intelligence", "rag", "assistant"],
+            "vector": ["embeddings", "semantic", "similarity"]
+        }
+
+    def normalize_query(self, query: str) -> str:
+        if not query:
+            return ""
+        cleaned = query.lower().strip()
+        cleaned = re.sub(r"[^\w\s-]", "", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        return cleaned
+
+    def _get_pub_year(self, pub_date: str | None) -> int | None:
+        if not pub_date:
+            return None
+        match = re.search(r"\b(19|20)\d{2}\b", pub_date)
+        return int(match.group(0)) if match else None
 
     def build_vocabulary(self, db: Session):
         """
@@ -100,6 +123,13 @@ class SearchPipeline:
         query_tokens = self._tokenize(query)
         if not query_tokens:
             return {}
+
+        # Expand query tokens with synonyms
+        expanded_tokens = list(query_tokens)
+        for token in query_tokens:
+            if token in self.synonyms:
+                expanded_tokens.extend(self.synonyms[token])
+        query_tokens = list(set(expanded_tokens))
 
         # Fetch all books with joined author/genres for content scoring
         books = db.query(Book).all()
@@ -210,9 +240,11 @@ class SearchPipeline:
         if not self.vocabulary:
             self.build_vocabulary(db)
 
+        # Normalize query
+        normalized = self.normalize_query(query)
         # Spellcheck query
-        spell_corrected = self.spell_correct_query(query)
-        effective_query = spell_corrected if spell_corrected else query
+        spell_corrected = self.spell_correct_query(normalized)
+        effective_query = spell_corrected if spell_corrected else normalized
 
         # Retrieve keyword and semantic scores
         kw_scores = {}
@@ -287,6 +319,11 @@ class SearchPipeline:
             if book.rating_count:
                 # Slight boost for high popularity
                 boosted_score *= (1.0 + 0.02 * min(5.0, math.log1p(book.rating_count)))
+
+            # Freshness boost for newer publications
+            pub_year = self._get_pub_year(book.pub_date)
+            if pub_year and pub_year >= 2015:
+                boosted_score *= (1.0 + 0.01 * min(5.0, pub_year - 2015))
 
             results.append({
                 "book": book,

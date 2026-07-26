@@ -22,13 +22,14 @@ def setup_db():
     db.add_all([author, publisher, genre])
     db.flush()
 
-    # Create test books
+    # Create test books with publication dates to verify year boosts
     book_1 = Book(
         title="Atomic Habits",
         description="Tiny daily improvements yield compounding, massive results over time.",
         isbn="9780735211292",
         rating=4.8,
         rating_count=50,
+        pub_date="2018-10-16",
         author=author,
         publisher=publisher,
         genres=[genre]
@@ -39,6 +40,7 @@ def setup_db():
         isbn="9781455586691",
         rating=4.6,
         rating_count=30,
+        pub_date="2016-01-05",
         author=author,
         publisher=publisher,
         genres=[genre]
@@ -56,27 +58,46 @@ def setup_db():
 
 def test_spell_correct_query(setup_db):
     _db = setup_db
-    # Type query with typo
     corrected = search_pipeline.spell_correct_query("Atmoc Habits")
     assert "atomic" in corrected.lower()
 
 def test_keyword_bm25_search(setup_db):
     db = setup_db
-    # Query matching title tokens
     results = search_pipeline.search(db, query="Habits", search_type="keyword")
     assert len(results) > 0
     assert results[0]["book"].title == "Atomic Habits"
 
-    # Query matching description tokens
     results = search_pipeline.search(db, query="concentration", search_type="keyword")
     assert len(results) > 0
     assert results[0]["book"].title == "Deep Work"
 
 def test_hybrid_search(setup_db):
     db = setup_db
-    # Running hybrid search combines rankings
     results = search_pipeline.search(db, query="habits", search_type="hybrid")
     assert len(results) > 0
-    # Checks that it retrieved matching items
     matched_titles = [r["book"].title for r in results]
     assert "Atomic Habits" in matched_titles
+
+def test_query_normalization(setup_db):
+    # Verify that casing and excessive spaces are normalized
+    normalized = search_pipeline.normalize_query("  ATOMIC    HABITS!!!  ")
+    assert normalized == "atomic habits"
+
+def test_synonym_expansion(setup_db):
+    # Verify synonyms dictionary expands keywords
+    tokens = ["craftsmanship"]
+    expanded_tokens = list(tokens)
+    for token in tokens:
+        if token in search_pipeline.synonyms:
+            expanded_tokens.extend(search_pipeline.synonyms[token])
+    assert "clean" in expanded_tokens
+    assert "design" in expanded_tokens
+
+def test_freshness_boosting(setup_db):
+    # Verify year parsing from strings
+    year_1 = search_pipeline._get_pub_year("2018-10-16")
+    year_2 = search_pipeline._get_pub_year("2016-01-05")
+    year_3 = search_pipeline._get_pub_year("Undated")
+    assert year_1 == 2018
+    assert year_2 == 2016
+    assert year_3 is None

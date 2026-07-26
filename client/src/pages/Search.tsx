@@ -3,7 +3,7 @@ import ApiClient from "../services/api";
 import { 
   Search as SearchIcon, Star, BookOpen, Layers, 
   Sparkles, History, RotateCcw, X, CheckSquare, 
-  HelpCircle, ArrowRightLeft, BookMarked, Command
+  ArrowRightLeft, BookMarked, Command
 } from "lucide-react";
 
 interface Book {
@@ -39,15 +39,18 @@ export default function Search() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
 
-  // History & Comparison
+  // History, Suggestions & Comparison
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [trendingSearches, setTrendingSearches] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedForComparison, setSelectedForComparison] = useState<number[]>([]);
   const [comparisonDossier, setComparisonDossier] = useState<string | null>(null);
   const [loadingComparison, setLoadingComparison] = useState(false);
 
   const availableGenres = ["Self-Help", "Business", "Tech", "Psychology", "Fantasy", "Sci-Fi", "History", "Biography", "Mystery", "Fiction", "Education"];
 
-  // Handle Ctrl+K shortcut to focus search input
+  // Keyboard shortcut to focus search input (Cmd+K / Ctrl+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -59,16 +62,50 @@ export default function Search() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Load recent searches
+  // Fetch Autocomplete Suggestions (Debounced)
   useEffect(() => {
-    const saved = localStorage.getItem("aetheria_recent_searches");
-    if (saved) {
+    if (titleQuery.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const delayDebounce = setTimeout(async () => {
       try {
-        setRecentSearches(JSON.parse(saved));
+        const list = await ApiClient.get(`/search/autocomplete?q=${encodeURIComponent(titleQuery)}`);
+        setSuggestions(list);
       } catch (e) {
         // ignore
       }
+    }, 200);
+
+    return () => clearTimeout(delayDebounce);
+  }, [titleQuery]);
+
+  // Load history and trending queries on mount
+  const loadHistoryAndTrending = async () => {
+    try {
+      const [history, trending] = await Promise.all([
+        ApiClient.get("/search/history"),
+        ApiClient.get("/search/trending")
+      ]);
+      setRecentSearches(history);
+      setTrendingSearches(trending);
+    } catch (e) {
+      // Fallback to local storage if API fails
+      const saved = localStorage.getItem("aetheria_recent_searches");
+      if (saved) {
+        try {
+          setRecentSearches(JSON.parse(saved));
+        } catch (err) {
+          // ignore
+        }
+      }
+      // Populate static trending tags on network failure
+      setTrendingSearches(["Atomic Habits", "Deep Work", "Clean Code", "Focus", "Success"]);
     }
+  };
+
+  useEffect(() => {
+    loadHistoryAndTrending();
   }, []);
 
   const saveRecentSearch = (queryStr: string) => {
@@ -85,6 +122,7 @@ export default function Search() {
     setSpellCorrected(null);
     setError("");
     setSelectedForComparison([]);
+    setShowSuggestions(false);
 
     // Compile a composite query string
     const parts = [];
@@ -109,6 +147,9 @@ export default function Search() {
       const response = await ApiClient.post("/search/", payload);
       setResults(response.results);
       setSpellCorrected(response.spell_corrected_query);
+      
+      // Refresh search history log
+      loadHistoryAndTrending();
     } catch (err: any) {
       setError(err.message || "Search failed.");
     } finally {
@@ -116,7 +157,6 @@ export default function Search() {
     }
   };
 
-  // Quick filter chips click handler
   const handleQuickFilter = (type: "rating" | "pages" | "genre-tech" | "genre-self") => {
     if (type === "rating") {
       setMinRating(4.0);
@@ -127,14 +167,13 @@ export default function Search() {
     } else if (type === "genre-self") {
       setSelectedGenres((prev) => prev.includes("Self-Help") ? prev : [...prev, "Self-Help"]);
     }
-    // Fire search directly with current input
     setTimeout(() => handleSearch(), 50);
   };
 
   const handleReset = () => {
     setTitleQuery("");
-    setAuthorQuery("");
-    setIsbnQuery("");
+    authorQuery && setAuthorQuery("");
+    isbnQuery && setIsbnQuery("");
     setLanguage("Any");
     setSearchType("hybrid");
     setSelectedGenres([]);
@@ -188,7 +227,7 @@ export default function Search() {
   return (
     <div className="space-y-8 pb-16">
       
-      {/* Top Banner Navigation Row */}
+      {/* Top Navigation row */}
       <div className="border-b border-white/5 pb-4 flex justify-between items-center flex-wrap gap-4">
         <div className="flex items-center gap-2">
           <BookMarked className="w-8 h-8 text-emerald-400" />
@@ -205,7 +244,7 @@ export default function Search() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left Column: Form (2/3 width) */}
+        {/* Left Column: Input Form (2/3 width) */}
         <div className="lg:col-span-2 space-y-6">
           <div className="glass-card border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden">
             
@@ -222,20 +261,38 @@ export default function Search() {
 
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Title */}
-                <div>
+                {/* Title and Autocomplete Dropdown */}
+                <div className="relative">
                   <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Book Title</label>
-                  <div className="relative">
-                    <input 
-                      ref={searchInputRef}
-                      type="text" 
-                      value={titleQuery}
-                      onChange={(e) => setTitleQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                      placeholder="e.g. Atomic Habits" 
-                      className="w-full glass-input text-sm"
-                    />
-                  </div>
+                  <input 
+                    ref={searchInputRef}
+                    type="text" 
+                    value={titleQuery}
+                    onChange={(e) => { setTitleQuery(e.target.value); setShowSuggestions(true); }}
+                    onKeyDown={(e) => e.key === "Enter" && (handleSearch(), setShowSuggestions(false))}
+                    onFocus={() => setShowSuggestions(true)}
+                    placeholder="e.g. Atomic Habits" 
+                    className="w-full glass-input text-sm"
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 mt-1.5 z-30 bg-[#09090b]/95 border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                      {suggestions.map((sug, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            const cleanText = sug.startsWith("by ") ? sug.substring(3) : sug;
+                            setTitleQuery(cleanText);
+                            setShowSuggestions(false);
+                            handleSearch(cleanText);
+                          }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-white/5 text-xs text-zinc-300 hover:text-white transition cursor-pointer border-b border-white/2"
+                        >
+                          {sug}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {/* Author */}
                 <div>
@@ -354,7 +411,7 @@ export default function Search() {
                 </div>
               </div>
 
-              {/* Genres Multiselect */}
+              {/* Genres tags */}
               <div>
                 <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Genres</label>
                 <div className="flex flex-wrap gap-2 max-h-[85px] overflow-y-auto p-1 border border-white/5 rounded-xl bg-white/2">
@@ -439,7 +496,7 @@ export default function Search() {
           </div>
         </div>
 
-        {/* Right Column: History (1/3 width) */}
+        {/* Right Column: History and Trending (1/3 width) */}
         <div className="space-y-6">
           {/* Recent Searches */}
           <div className="glass-card border border-white/5 rounded-2xl p-5 shadow-xl">
@@ -470,17 +527,26 @@ export default function Search() {
             )}
           </div>
 
-          {/* Quick Help */}
-          <div className="glass-card border border-white/5 rounded-2xl p-5 shadow-xl">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-              <HelpCircle className="w-4 h-4 text-emerald-400" />
-              Find Books With Just One Search
+          {/* Trending Searches */}
+          <div className="glass-card border border-white/5 rounded-2xl p-5 shadow-xl space-y-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              Trending Searches
             </h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Our hybrid comparison search engine leverages both BM25 keywords and Vector Semantic space. 
-              Search results rank matching items side-by-side, helping you compare structures, target difficulty, and read community consensuses.
-            </p>
+            <div className="flex flex-wrap gap-2">
+              {trendingSearches.map((ts, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleSelectRecent(ts)}
+                  className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-[10px] font-semibold text-zinc-400 hover:bg-white/5 hover:text-white transition cursor-pointer"
+                >
+                  {ts}
+                </button>
+              ))}
+            </div>
           </div>
+
         </div>
 
       </div>
@@ -641,7 +707,7 @@ export default function Search() {
             <SearchIcon className="w-10 h-10 text-zinc-700 animate-pulse" />
             <div className="space-y-1">
               <p className="font-semibold text-zinc-400">Search Catalogue</p>
-              <p className="text-xs text-zinc-600 max-w-sm">Enter search parameters above to discover books and compile dossiers</p>
+              <p className="text-xs text-zinc-650 max-w-sm">Enter search parameters above to discover books and compile dossiers</p>
             </div>
           </div>
         )}
