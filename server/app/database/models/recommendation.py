@@ -14,6 +14,7 @@ class Recommendation(Base):
     book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
     score = Column(Float, nullable=False)
     recommender_type = Column(String, default="hybrid")  # 'content', 'collaborative', 'hybrid'
+    explanation = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

@@ -54,10 +54,12 @@ class RecommendationService:
         # 2. Get embeddings for the user's books
         user_books = db.query(Book).filter(Book.id.in_(user_book_ids)).all()
         user_vectors = []
+        user_vector_map = {}
         for b in user_books:
             if b.description:
-                # Get embedding from service (will run real or mock)
-                user_vectors.append(embedding_service.get_embedding(b.description))
+                emb = embedding_service.get_embedding(b.description)
+                user_vectors.append(emb)
+                user_vector_map[b.id] = emb
 
         if not user_vectors:
             return []
@@ -84,9 +86,33 @@ class RecommendationService:
                 book_vector = book_vector / b_norm
 
             similarity = float(np.dot(user_profile_vector, book_vector))
+
+            # Find the most similar book in user's history for explainability
+            best_match_book = None
+            best_match_score = -1.0
+            for u_b in user_books:
+                if u_b.id not in user_vector_map:
+                    continue
+                u_vec = np.array(user_vector_map[u_b.id])
+                u_norm = np.linalg.norm(u_vec)
+                if u_norm > 0:
+                    u_vec = u_vec / u_norm
+                sim = float(np.dot(u_vec, book_vector))
+                if sim > best_match_score:
+                    best_match_score = sim
+                    best_match_book = u_b
+
+            explanation = ""
+            if best_match_book:
+                explanation = f"Because you liked '{best_match_book.title}'"
+            else:
+                explanation = "Similar content from your shelf"
+
             recommendations.append({
                 "book": book,
-                "score": similarity
+                "score": similarity,
+                "recommender_type": "content",
+                "explanation": explanation
             })
 
         # Sort descending
@@ -143,14 +169,16 @@ class RecommendationService:
         for book in recommended_books:
             recommendations.append({
                 "book": book,
-                "score": book_scores[book.id]
+                "score": book_scores[book.id],
+                "recommender_type": "collaborative",
+                "explanation": "Recommended based on similar reader preferences"
             })
 
         # Sort descending
         recommendations.sort(key=lambda x: x["score"], reverse=True)
         return recommendations[:limit]
 
-    def get_hybrid_recommendations(self, db: Session, user_id: int, limit: int = 10) -> list[Book]:
+    def get_hybrid_recommendations(self, db: Session, user_id: int, limit: int = 10) -> list[dict[str, Any]]:
         """
         Combines Content-based, Collaborative filtering, and Popularity recommendations.
         Checks for cold start, applies weight parameters, and merges results.
@@ -161,7 +189,16 @@ class RecommendationService:
 
         if user_fav_count == 0 and user_shelf_count == 0:
             logger.info(f"Cold start detected for user {user_id}. Serving popularity recommendations.")
-            return self.get_popularity_recommendations(db, limit)
+            pop_books = self.get_popularity_recommendations(db, limit)
+            results = []
+            for book in pop_books:
+                results.append({
+                    "book": book,
+                    "score": 0.8,
+                    "recommender_type": "popularity",
+                    "explanation": "Trending choice in the Aetheria catalog"
+                })
+            return results
 
         # 2. Fetch recommendations from pipelines
         content_hits = self.get_content_recommendations(db, user_id, limit=limit*2)
@@ -169,9 +206,6 @@ class RecommendationService:
         pop_books = self.get_popularity_recommendations(db, limit=limit*2)
 
         # 3. Normalize scores and compile candidates
-        # Content hits are already 0-1 cosine similarity scores
-        # Collab hits need to be mapped to a relative scale
-        # We merge them using a weighted score: 0.6 * Content + 0.3 * Collab + 0.1 * Popularity
         candidates = {}
 
         # Max score for normalizing collab
@@ -182,7 +216,9 @@ class RecommendationService:
             bid = hit["book"].id
             candidates[bid] = {
                 "book": hit["book"],
-                "score": 0.6 * hit["score"]
+                "score": 0.6 * hit["score"],
+                "recommender_type": "content",
+                "explanation": hit.get("explanation", "Matches your reading interests")
             }
 
         # Add Collaborative Candidates (Weight: 0.3)
@@ -191,10 +227,14 @@ class RecommendationService:
             norm_score = hit["score"] / max_collab
             if bid in candidates:
                 candidates[bid]["score"] += 0.3 * norm_score
+                # Content+Collab is a strong hybrid match
+                candidates[bid]["explanation"] += " and similar reader tastes"
             else:
                 candidates[bid] = {
                     "book": hit["book"],
-                    "score": 0.3 * norm_score
+                    "score": 0.3 * norm_score,
+                    "recommender_type": "collaborative",
+                    "explanation": hit.get("explanation", "Recommended based on similar reader preferences")
                 }
 
         # Add Popularity fallbacks (Weight: 0.1)
@@ -206,14 +246,17 @@ class RecommendationService:
             else:
                 candidates[bid] = {
                     "book": book,
-                    "score": 0.1 * pop_score
+                    "score": 0.1 * pop_score,
+                    "recommender_type": "popularity",
+                    "explanation": "Trending choice in the Aetheria catalog"
                 }
 
         # 4. Sort and return
         final_list = list(candidates.values())
         final_list.sort(key=lambda x: x["score"], reverse=True)
 
-        return [item["book"] for item in final_list[:limit]]
+        return final_list[:limit]
+
 
 # Singleton instance
 recommendation_service = RecommendationService()

@@ -36,9 +36,9 @@ def background_generate_recommendations(db_session_factory, user_id: int):
         logger.info(f"[Background Task] Precomputing hybrid recommendations for User {user_id}...")
 
         # 1. Generate recommendations
-        recommended_books = recommendation_service.get_hybrid_recommendations(db, user_id, limit=20)
+        recommended_hits = recommendation_service.get_hybrid_recommendations(db, user_id, limit=20)
 
-        if not recommended_books:
+        if not recommended_hits:
             logger.info(f"[Background Task] No recommendations generated for User {user_id}.")
             return
 
@@ -46,19 +46,19 @@ def background_generate_recommendations(db_session_factory, user_id: int):
         db.query(Recommendation).filter(Recommendation.user_id == user_id).delete()
 
         # 3. Save new recommendations to the cache table
-        for idx, book in enumerate(recommended_books):
-            # Assign relative score based on rank
-            score = 1.0 - (idx * 0.04)  # Rank 0 gets 1.0, Rank 1 gets 0.96...
+        for hit in recommended_hits:
+            book = hit["book"]
             rec = Recommendation(
                 user_id=user_id,
                 book_id=book.id,
-                score=score,
-                recommender_type="hybrid"
+                score=hit["score"],
+                recommender_type=hit.get("recommender_type", "hybrid"),
+                explanation=hit.get("explanation", "")
             )
             db.add(rec)
 
         db.commit()
-        logger.info(f"[Background Task] Successfully cached {len(recommended_books)} recommendations for User {user_id}.")
+        logger.info(f"[Background Task] Successfully cached {len(recommended_hits)} recommendations for User {user_id}.")
 
     except Exception as e:
         db.rollback()

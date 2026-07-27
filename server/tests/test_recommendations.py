@@ -123,3 +123,24 @@ def test_api_recalculate_endpoint_guest_blocked(client):
     # Recalculate endpoint requires authentication
     response = client.post("/api/v1/recommendations/recalculate")
     assert response.status_code == 401
+
+
+def test_recommendation_explanations(db_session):
+    u1 = db_session.query(User).filter(User.email == "user1@example.com").first()
+    b1 = db_session.query(Book).filter(Book.title == "Atomic Habits").first()
+
+    # User 1 favorites Atomic Habits
+    db_session.add(Favorite(user_id=u1.id, book_id=b1.id))
+    db_session.commit()
+
+    # Content recommender should generate explanation based on favorite
+    recs = recommendation_service.get_content_recommendations(db_session, user_id=u1.id)
+    assert len(recs) > 0
+    assert "explanation" in recs[0]
+    assert recs[0]["explanation"].startswith("Because you liked")
+
+    # Hybrid recommender should return items with explanations
+    hybrid_recs = recommendation_service.get_hybrid_recommendations(db_session, user_id=u1.id)
+    assert len(hybrid_recs) > 0
+    assert "explanation" in hybrid_recs[0]
+    assert "recommender_type" in hybrid_recs[0]

@@ -31,8 +31,14 @@ export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  interface RecommendationHit {
+    book: Book;
+    score: number;
+    explanation: string;
+  }
+
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [recommendations, setRecommendations] = useState<Book[]>([]);
+  const [recommendations, setRecommendations] = useState<RecommendationHit[]>([]);
   const [currentlyReading, setCurrentlyReading] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [recalculating, setRecalculating] = useState<boolean>(false);
@@ -227,30 +233,33 @@ export default function Dashboard() {
             </h3>
             <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scrollbar-thin">
               {recommendations.length > 0 ? (
-                recommendations.map((book) => (
-                  <Link
-                    key={book.id}
-                    to={`/books/${book.id}`}
-                    className="flex-none w-36 glass-card rounded-2xl border border-white/5 p-3 hover:border-white/10 hover:bg-white/2 transition group"
-                  >
-                    <div className="aspect-[2/3] w-full overflow-hidden rounded-xl shadow mb-3 relative">
-                      <img 
-                        src={book.cover_url || "https://placehold.co/100x150?text=Cover"} 
-                        alt={book.title} 
-                        className="w-full h-full object-cover group-hover:scale-102 transition duration-300"
-                      />
-                      <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur border border-white/5 text-[8px] font-bold text-emerald-400">
-                        94% Match
+                recommendations.map((hit) => {
+                  const book = hit.book;
+                  return (
+                    <Link
+                      key={book.id}
+                      to={`/books/${book.id}`}
+                      className="flex-none w-36 glass-card rounded-2xl border border-white/5 p-3 hover:border-white/10 hover:bg-white/2 transition group"
+                    >
+                      <div className="aspect-[2/3] w-full overflow-hidden rounded-xl shadow mb-3 relative">
+                        <img 
+                          src={book.cover_url || "https://placehold.co/100x150?text=Cover"} 
+                          alt={book.title} 
+                          className="w-full h-full object-cover group-hover:scale-102 transition duration-300"
+                        />
+                        <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur border border-white/5 text-[8px] font-bold text-emerald-400">
+                          {hit.score > 0 ? `${Math.round(hit.score * 100)}% Match` : "Match"}
+                        </div>
                       </div>
-                    </div>
-                    <h4 className="text-xs font-bold text-white truncate group-hover:text-emerald-400 transition-colors">
-                      {book.title}
-                    </h4>
-                    <p className="text-[10px] text-zinc-500 truncate mt-0.5">
-                      {book.author?.name || "Unknown"}
-                    </p>
-                  </Link>
-                ))
+                      <h4 className="text-xs font-bold text-white truncate group-hover:text-emerald-400 transition-colors">
+                        {book.title}
+                      </h4>
+                      <p className="text-[10px] text-zinc-500 truncate mt-0.5">
+                        {book.author?.name || "Unknown"}
+                      </p>
+                    </Link>
+                  );
+                })
               ) : (
                 <div className="w-full text-center py-10 text-zinc-650 text-xs border border-dashed border-white/5 rounded-2xl">
                   Catalog records loading...
@@ -266,38 +275,46 @@ export default function Dashboard() {
               Recommended For You
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {recommendations.slice(0, 3).map((book) => (
-                <Link
-                  key={book.id}
-                  to={`/books/${book.id}`}
-                  className="glass-card rounded-2xl border border-white/5 p-3 hover:border-white/10 hover:bg-white/2 transition group flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="aspect-[2/3] w-full overflow-hidden rounded-xl shadow mb-3 relative">
-                      <img 
-                        src={book.cover_url || "https://placehold.co/100x150?text=Cover"} 
-                        alt={book.title} 
-                        className="w-full h-full object-cover group-hover:scale-102 transition duration-300"
-                      />
+              {recommendations.slice(0, 3).map((hit) => {
+                const book = hit.book;
+                return (
+                  <Link
+                    key={book.id}
+                    to={`/books/${book.id}`}
+                    className="glass-card rounded-2xl border border-white/5 p-3 hover:border-white/10 hover:bg-white/2 transition group flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="aspect-[2/3] w-full overflow-hidden rounded-xl shadow mb-3 relative">
+                        <img 
+                          src={book.cover_url || "https://placehold.co/100x150?text=Cover"} 
+                          alt={book.title} 
+                          className="w-full h-full object-cover group-hover:scale-102 transition duration-300"
+                        />
+                      </div>
+                      <h4 className="text-xs font-bold text-white truncate group-hover:text-emerald-400 transition-colors">
+                        {book.title}
+                      </h4>
+                      <p className="text-[10px] text-zinc-400 truncate mt-0.5">
+                        by {book.author?.name || "Unknown"}
+                      </p>
+                      {hit.explanation && (
+                        <p className="text-[9px] text-emerald-400/90 italic font-semibold mt-1.5 truncate">
+                          {hit.explanation}
+                        </p>
+                      )}
                     </div>
-                    <h4 className="text-xs font-bold text-white truncate group-hover:text-emerald-400 transition-colors">
-                      {book.title}
-                    </h4>
-                    <p className="text-[10px] text-zinc-400 truncate mt-0.5">
-                      by {book.author?.name || "Unknown"}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/5 text-[9px] text-zinc-500 font-semibold">
-                    <span className="flex items-center gap-0.5 text-yellow-500">
-                      <Star className="w-3 h-3 fill-yellow-500/10" />
-                      {book.rating || "New"}
-                    </span>
-                    <span className="flex items-center gap-1 hover:text-white transition">
-                      Details <ChevronRight className="w-3 h-3" />
-                    </span>
-                  </div>
-                </Link>
-              ))}
+                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/5 text-[9px] text-zinc-500 font-semibold">
+                      <span className="flex items-center gap-0.5 text-yellow-500">
+                        <Star className="w-3 h-3 fill-yellow-500/10" />
+                        {book.rating || "New"}
+                      </span>
+                      <span className="flex items-center gap-1 hover:text-white transition">
+                        Details <ChevronRight className="w-3 h-3" />
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
