@@ -14,6 +14,7 @@ import BookDetails from "./pages/BookDetails";
 import Shelves from "./pages/Shelves";
 import AdminCatalog from "./pages/AdminCatalog";
 import LibrarianChat from "./pages/LibrarianChat";
+import Scanner from "./pages/Scanner";
 
 // Initialize TanStack Query Client
 const queryClient = new QueryClient({
@@ -92,6 +93,18 @@ const App: React.FC = () => {
                   <DashboardLayout>
                     <PageTransition>
                       <LibrarianChat />
+                    </PageTransition>
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/scanner"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <PageTransition>
+                      <Scanner />
                     </PageTransition>
                   </DashboardLayout>
                 </ProtectedRoute>

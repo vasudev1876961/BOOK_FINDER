@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { 
   LayoutDashboard, Search, Library, LogOut, Shield, 
-  Sparkles, ChevronLeft, ChevronRight, User, Settings2 
+  Sparkles, ChevronLeft, ChevronRight, User, Settings2, Camera
 } from "lucide-react";
 
 interface LayoutProps {
@@ -38,6 +38,7 @@ const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
   const navItems = [
     { label: "Home", path: "/", icon: LayoutDashboard },
     { label: "AI Search", path: "/search", icon: Search },
+    { label: "Book Scanner", path: "/scanner", icon: Camera },
     { label: "AI Librarian", path: "/chat", icon: Sparkles },
     { label: "My Library", path: "/shelves", icon: Library }
   ];
