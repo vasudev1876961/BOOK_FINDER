@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import ApiClient from "../services/api";
 import { 
   Flame, Trophy, Award, RefreshCw, 
-  Search, Sparkles, Clock, Star, Compass, ChevronRight 
+  Search, Sparkles, Clock, Star, Compass, ChevronRight, X, Settings2, ArrowRight
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
 import { useAuth } from "../context/AuthContext";
@@ -25,6 +25,15 @@ interface Analytics {
   genre_distribution: { genre: string; count: number }[];
   monthly_activity: { month: string; count: number }[];
   reading_streak: { current_streak: number; longest_streak: number; last_activity_date: string };
+  
+  // Upgraded goals & progress
+  reading_speed: number;
+  daily_pages_goal: number;
+  monthly_books_goal: number;
+  yearly_books_goal: number;
+  daily_pages_progress: number;
+  monthly_books_progress: number;
+  yearly_books_progress: number;
 }
 
 export default function Dashboard() {
@@ -47,6 +56,14 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [aiQuestion, setAiQuestion] = useState("");
 
+  // Goal & Progress Logging States
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [dailyGoalInput, setDailyGoalInput] = useState(30);
+  const [monthlyGoalInput, setMonthlyGoalInput] = useState(2);
+  const [yearlyGoalInput, setYearlyGoalInput] = useState(12);
+  const [speedInput, setSpeedInput] = useState(1.5);
+  const [logValue, setLogValue] = useState(0);
+
   const fetchData = async () => {
     try {
       const [analyticsData, recsData, shelfData] = await Promise.all([
@@ -68,25 +85,60 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+  // Sync inputs when analytics loads
+  useEffect(() => {
+    if (analytics) {
+      setDailyGoalInput(analytics.daily_pages_goal);
+      setMonthlyGoalInput(analytics.monthly_books_goal);
+      setYearlyGoalInput(analytics.yearly_books_goal);
+      setSpeedInput(analytics.reading_speed);
+    }
+  }, [analytics]);
+
   const handleRecalculate = async () => {
     setRecalculating(true);
     try {
       await ApiClient.post("/recommendations/recalculate", {});
-      setTimeout(async () => {
-        const recsData = await ApiClient.get("/recommendations/");
-        setRecommendations(recsData);
-        setRecalculating(false);
-      }, 1500);
+      // Reload details
+      await fetchData();
     } catch (err) {
-      console.error("Failed to recalculate recommendations:", err);
+      console.error("Recalculation error:", err);
+    } finally {
       setRecalculating(false);
+    }
+  };
+
+  const handleLogPages = async () => {
+    if (logValue <= 0) return;
+    try {
+      await ApiClient.post("/analytics/log-pages", { pages: logValue });
+      setLogValue(0);
+      fetchData();
+    } catch (err) {
+      console.error("Failed to log pages:", err);
+    }
+  };
+
+  const handleUpdateGoals = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await ApiClient.post("/analytics/goals", {
+        daily_pages_goal: dailyGoalInput,
+        monthly_books_goal: monthlyGoalInput,
+        yearly_books_goal: yearlyGoalInput,
+        reading_speed: speedInput
+      });
+      setShowGoalModal(false);
+      fetchData();
+    } catch (err) {
+      console.error("Failed to update goals:", err);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-zinc-400">
-        <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+        <div className="w-10 h-10 border-2 border-primary/20 border-t-emerald-400 rounded-full animate-spin"></div>
         <p className="text-xs font-semibold tracking-wider text-zinc-500 animate-pulse">Syncing Workspace...</p>
       </div>
     );
@@ -101,6 +153,15 @@ export default function Dashboard() {
     return { percent, pagesRead };
   };
 
+  // SVGRing Circumference calculations
+  const dailyPages = analytics?.daily_pages_progress || 0;
+  const dailyGoal = analytics?.daily_pages_goal || 30;
+  const readSpeed = analytics?.reading_speed || 1.5;
+  const readMinutes = Math.round(dailyPages / readSpeed);
+  const goalMinutes = Math.round(dailyGoal / readSpeed);
+  const dailyPercent = Math.min(100, Math.round((dailyPages / dailyGoal) * 100));
+  const dashOffset = 251.2 - (dailyPercent / 100) * 251.2;
+
   return (
     <div className="space-y-8 pb-16">
       
@@ -110,69 +171,81 @@ export default function Dashboard() {
           <h1 className="text-3xl font-extrabold tracking-tight text-white mb-1.5">
             Welcome back, {user?.full_name || "Reader"} 👋
           </h1>
-          <p className="text-sm text-zinc-400">
-            Continue your reading journey. Discover your next favorite book.
-          </p>
+          <p className="text-xs text-zinc-400">Continue your reading journey. Discover your next favorite book.</p>
         </div>
         <button
           onClick={handleRecalculate}
           disabled={recalculating}
-          className="px-4 py-2.5 rounded-xl border border-white/5 bg-white/2 hover:bg-white/5 text-zinc-300 text-xs font-semibold flex items-center gap-2 transition disabled:opacity-50 cursor-pointer self-start"
+          className="px-4 py-2 text-xs font-semibold rounded-xl bg-white/3 border border-white/5 hover:bg-white/5 text-zinc-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${recalculating ? "animate-spin text-emerald-400" : "text-zinc-500"}`} />
-          <span>{recalculating ? "Recalculating..." : "Sync AI Recommender"}</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${recalculating ? "animate-spin" : ""}`} />
+          Recalculate AI Recommendations
         </button>
       </div>
 
-      {/* 2. Quick Action Workspace Console */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Search Input Card */}
-        <div className="glass-card border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-electric-blue/10 flex items-center justify-center shrink-0">
-            <Search className="w-4 h-4 text-electric-blue" />
+      {/* 2. Quick Action Console (AI Search & Ask Redirect inputs) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="glass-card rounded-2xl border border-white/5 p-5 relative overflow-hidden group">
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Search className="w-4 h-4 text-emerald-400" />
+            Search Catalog
+          </h3>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search by title, author, or genre..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && navigate(`/search?q=${encodeURIComponent(searchQuery)}`)}
+              className="w-full glass-input text-xs pr-10"
+            />
+            <button 
+              onClick={() => navigate(`/search?q=${encodeURIComponent(searchQuery)}`)}
+              className="absolute right-3 top-2.5 text-zinc-500 hover:text-white transition cursor-pointer"
+            >
+              <Search className="w-4 h-4" />
+            </button>
           </div>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && navigate(`/search?q=${encodeURIComponent(searchQuery)}`)}
-            placeholder="Search Books by Title, Author, or ISBN..."
-            className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
-          />
         </div>
 
-        {/* Ask AI Input Card */}
-        <div className="glass-card border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+        <div className="glass-card rounded-2xl border border-white/5 p-5 relative overflow-hidden group">
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-400" />
+            Ask Aetheria
+          </h3>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Ask for summaries, key themes, or recommendations..."
+              value={aiQuestion}
+              onChange={(e) => setAiQuestion(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && navigate(`/chat?question=${encodeURIComponent(aiQuestion)}`)}
+              className="w-full glass-input text-xs pr-10"
+            />
+            <button 
+              onClick={() => navigate(`/chat?question=${encodeURIComponent(aiQuestion)}`)}
+              className="absolute right-3 top-2.5 text-emerald-400 hover:text-white transition cursor-pointer"
+            >
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
-          <input
-            type="text"
-            value={aiQuestion}
-            onChange={(e) => setAiQuestion(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && navigate(`/chat?question=${encodeURIComponent(aiQuestion)}`)}
-            placeholder="Ask Aetheria anything (e.g. Recommend focus books)..."
-            className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
-          />
         </div>
       </div>
 
-      {/* 3. Main Dashboard Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left Column (2/3 width) */}
+        {/* Left Column: Shelf & Carousels (2/3 width) */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* Continue Reading Section */}
+          {/* Currently Reading Shelf */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Clock className="w-4 h-4 text-zinc-400" />
+              <Clock className="w-4 h-4 text-emerald-400" />
               Continue Reading
             </h3>
-            
             {currentlyReading.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {currentlyReading.map((item) => {
+                {currentlyReading.slice(0, 4).map((item) => {
                   const book = item.book;
                   if (!book) return null;
                   const { percent, pagesRead } = getProgressDetails(book.id, book.pages);
@@ -215,7 +288,7 @@ export default function Dashboard() {
                 })}
               </div>
             ) : (
-              <div className="text-center py-10 text-zinc-600 text-xs border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/1">
+              <div className="text-center py-10 text-zinc-650 text-xs border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/1">
                 <Compass className="w-6 h-6 text-zinc-700 animate-pulse" />
                 <span>No active books on your reading list.</span>
                 <Link to="/search" className="text-[10px] text-emerald-400 font-bold hover:underline mt-1">
@@ -371,12 +444,21 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Daily Goal Progress (SVG Ring) */}
+          {/* Upgraded Goals & Logging Card */}
           <div className="glass-card border border-white/5 rounded-2xl p-5 flex flex-col items-center justify-between text-center gap-4">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider self-start">Reading Goal</h3>
+            <div className="flex justify-between items-center w-full">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Reading Goals</h3>
+              <button
+                type="button"
+                onClick={() => setShowGoalModal(true)}
+                className="text-[10px] text-emerald-400 font-bold hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <Settings2 className="w-3 h-3" />
+                Edit Goals
+              </button>
+            </div>
             
             <div className="relative w-24 h-24 flex items-center justify-center">
-              {/* SVG circular track */}
               <svg className="w-full h-full transform -rotate-90">
                 <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.04)" strokeWidth="6" fill="transparent" />
                 <circle 
@@ -387,19 +469,81 @@ export default function Dashboard() {
                   strokeWidth="6" 
                   fill="transparent" 
                   strokeDasharray="251.2"
-                  strokeDashoffset="83.7" // Simulated 66% completed
+                  strokeDashoffset={dashOffset}
                   strokeLinecap="round"
+                  className="transition-all duration-500"
                 />
               </svg>
               <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-lg font-black text-white">20</span>
-                <span className="text-[9px] text-zinc-500 uppercase tracking-wider font-semibold">of 30 min</span>
+                <span className="text-lg font-black text-white">{dailyPages}</span>
+                <span className="text-[8px] text-zinc-500 uppercase tracking-wider font-semibold">of {dailyGoal} pages</span>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <p className="text-xs font-bold text-white">Daily Target: 30 minutes</p>
-              <p className="text-[10px] text-zinc-500">Read 10 more minutes to hit your streak target today!</p>
+            <div className="space-y-1 w-full text-center">
+              <p className="text-xs font-bold text-white">Daily Target: {dailyGoal} pages ({goalMinutes} min)</p>
+              <p className="text-[10px] text-zinc-400 block font-semibold mt-0.5">
+                Completed today: {dailyPages} pages (~{readMinutes} min spent)
+              </p>
+              <p className="text-[10px] text-zinc-500 mt-1 block">
+                {dailyPercent >= 100 
+                  ? "🎉 Daily reading goal achieved! Excellent work!" 
+                  : `Read ${dailyGoal - dailyPages} more pages to hit target today!`}
+              </p>
+            </div>
+
+            {/* Monthly / Yearly progress bars */}
+            <div className="w-full space-y-3 pt-2 text-left border-t border-white/5">
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-zinc-400 font-semibold">
+                  <span>Monthly Books Goal</span>
+                  <span className="text-emerald-400">
+                    {analytics?.monthly_books_progress || 0} of {analytics?.monthly_books_goal || 2} completed
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-emerald-400 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((analytics?.monthly_books_progress || 0) / (analytics?.monthly_books_goal || 2)) * 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-zinc-400 font-semibold">
+                  <span>Yearly Books Goal</span>
+                  <span className="text-emerald-400">
+                    {analytics?.yearly_books_progress || 0} of {analytics?.yearly_books_goal || 12} completed
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-emerald-400 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((analytics?.yearly_books_progress || 0) / (analytics?.yearly_books_goal || 12)) * 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Log Form */}
+            <div className="w-full pt-3 border-t border-white/5">
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Pages read"
+                  value={logValue === 0 ? "" : logValue}
+                  onChange={(e) => setLogValue(parseInt(e.target.value) || 0)}
+                  onKeyDown={(e) => e.key === "Enter" && handleLogPages()}
+                  className="flex-1 glass-input text-xs py-1.5 text-center"
+                />
+                <button
+                  type="button"
+                  onClick={handleLogPages}
+                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-semibold cursor-pointer shadow shadow-emerald-500/10"
+                >
+                  Log Pages
+                </button>
+              </div>
             </div>
           </div>
 
@@ -424,8 +568,8 @@ export default function Dashboard() {
                   <Trophy className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-white truncate">Pages Pioneer</p>
-                  <p className="text-[9px] text-zinc-500">Exceed 1,000 completed reading pages</p>
+                  <p className="text-xs font-bold text-white truncate">Page Turner</p>
+                  <p className="text-[9px] text-zinc-500">Log over 500 total read pages</p>
                 </div>
               </div>
             </div>
@@ -434,6 +578,88 @@ export default function Dashboard() {
         </div>
 
       </div>
+
+      {/* 3. Goal configuration overlay modal dialog */}
+      {showGoalModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="glass-card w-full max-w-md rounded-2xl border border-white/10 shadow-2xl relative p-6 animate-in zoom-in-95 duration-200 text-left">
+            <button
+              onClick={() => setShowGoalModal(false)}
+              className="absolute right-4 top-4 p-2 text-zinc-400 hover:text-white rounded-lg transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+              <Settings2 className="w-5 h-5 text-emerald-400" />
+              Configure Reading Parameters
+            </h3>
+
+            <form onSubmit={handleUpdateGoals} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Daily Goal (pages)</label>
+                <input
+                  type="number"
+                  required
+                  value={dailyGoalInput}
+                  onChange={(e) => setDailyGoalInput(parseInt(e.target.value) || 10)}
+                  className="w-full glass-input text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Monthly Goal (completed books)</label>
+                <input
+                  type="number"
+                  required
+                  value={monthlyGoalInput}
+                  onChange={(e) => setMonthlyGoalInput(parseInt(e.target.value) || 1)}
+                  className="w-full glass-input text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Yearly Goal (completed books)</label>
+                <input
+                  type="number"
+                  required
+                  value={yearlyGoalInput}
+                  onChange={(e) => setYearlyGoalInput(parseInt(e.target.value) || 1)}
+                  className="w-full glass-input text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Reading Velocity (pages per minute)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  required
+                  value={speedInput}
+                  onChange={(e) => setSpeedInput(parseFloat(e.target.value) || 1.0)}
+                  className="w-full glass-input text-xs"
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end pt-3 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setShowGoalModal(false)}
+                  className="px-4 py-2 border border-white/5 hover:bg-white/5 rounded-xl text-zinc-400 hover:text-white text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold cursor-pointer shadow shadow-emerald-500/10"
+                >
+                  Save Adjustments
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
