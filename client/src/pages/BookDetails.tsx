@@ -106,7 +106,7 @@ export default function BookDetails() {
     if (aiSummary || loadingSummary) return;
     setLoadingSummary(true);
     try {
-      const data = await ApiClient.post(`/books/${id}/summary`, {});
+      const data = await ApiClient.get(`/books/${id}/ai-summary`);
       setAiSummary(data.summary);
     } catch (err) {
       console.error("Summary failed:", err);
@@ -119,8 +119,8 @@ export default function BookDetails() {
     if (aiSentiment || loadingSentiment) return;
     setLoadingSentiment(true);
     try {
-      const data = await ApiClient.post(`/books/${id}/sentiment`, {});
-      setAiSentiment(data.sentiment);
+      const data = await ApiClient.get(`/reviews/book/${id}/sentiment`);
+      setAiSentiment(data.sentiment_report);
     } catch (err) {
       console.error("Sentiment consensus failed:", err);
     } finally {
