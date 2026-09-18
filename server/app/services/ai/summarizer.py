@@ -38,5 +38,6 @@ class BookSummarizer:
             logger.error(f"Failed to generate summary for '{book.title}': {e}")
             return "Failed to generate AI summary. Please check LLM provider logs."
 
+
 # Singleton instance
 book_summarizer = BookSummarizer()

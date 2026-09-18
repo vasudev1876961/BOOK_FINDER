@@ -14,12 +14,12 @@ from app.database.models.user import User
 from app.schemas.user import UserCreate
 
 # OAuth2 scheme config (pointing to token login endpoint)
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login"
-)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+
 
 def get_user_by_email(db: Session, email: str) -> User | None:
     return db.query(User).filter(User.email == email).first()
+
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     user = get_user_by_email(db, email)
@@ -28,6 +28,7 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
     if not verify_password(password, user.hashed_password):
         return None
     return user
+
 
 def create_new_user(db: Session, user_in: UserCreate) -> User:
     existing_user = get_user_by_email(db, user_in.email)
@@ -39,16 +40,16 @@ def create_new_user(db: Session, user_in: UserCreate) -> User:
         email=user_in.email,
         hashed_password=hashed_pw,
         full_name=user_in.full_name,
-        role="user"  # Default role
+        role="user",  # Default role
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
 
+
 def get_current_user(
-    db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
+    db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
 ) -> User:
     email = verify_token(token, token_type="access")
     if email is None:
@@ -61,23 +62,22 @@ def get_current_user(
         raise AuthException("Inactive user account")
     return user
 
-def get_current_admin(
-    current_user: User = Depends(get_current_user)
-) -> User:
+
+def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "admin":
         from app.core.exceptions import ActionForbiddenException
+
         raise ActionForbiddenException("Admin access required")
     return current_user
 
 
 oauth2_scheme_optional = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login",
-    auto_error=False
+    tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=False
 )
 
+
 def get_optional_current_user(
-    db: Session = Depends(get_db),
-    token: str | None = Depends(oauth2_scheme_optional)
+    db: Session = Depends(get_db), token: str | None = Depends(oauth2_scheme_optional)
 ) -> User | None:
     if not token:
         return None

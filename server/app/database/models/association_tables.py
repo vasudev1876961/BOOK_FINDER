@@ -6,6 +6,13 @@ from app.database.database import Base
 book_genre_association = Table(
     "book_genre",
     Base.metadata,
-    Column("book_id", Integer, ForeignKey("books.id", ondelete="CASCADE"), primary_key=True),
-    Column("genre_id", Integer, ForeignKey("genres.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "book_id", Integer, ForeignKey("books.id", ondelete="CASCADE"), primary_key=True
+    ),
+    Column(
+        "genre_id",
+        Integer,
+        ForeignKey("genres.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
 )

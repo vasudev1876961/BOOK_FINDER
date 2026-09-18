@@ -33,13 +33,19 @@ def background_generate_recommendations(db_session_factory, user_id: int):
     """
     db: Session = db_session_factory()
     try:
-        logger.info(f"[Background Task] Precomputing hybrid recommendations for User {user_id}...")
+        logger.info(
+            f"[Background Task] Precomputing hybrid recommendations for User {user_id}..."
+        )
 
         # 1. Generate recommendations
-        recommended_hits = recommendation_service.get_hybrid_recommendations(db, user_id, limit=20)
+        recommended_hits = recommendation_service.get_hybrid_recommendations(
+            db, user_id, limit=20
+        )
 
         if not recommended_hits:
-            logger.info(f"[Background Task] No recommendations generated for User {user_id}.")
+            logger.info(
+                f"[Background Task] No recommendations generated for User {user_id}."
+            )
             return
 
         # 2. Clear old cached recommendations for this user
@@ -53,16 +59,20 @@ def background_generate_recommendations(db_session_factory, user_id: int):
                 book_id=book.id,
                 score=hit["score"],
                 recommender_type=hit.get("recommender_type", "hybrid"),
-                explanation=hit.get("explanation", "")
+                explanation=hit.get("explanation", ""),
             )
             db.add(rec)
 
         db.commit()
-        logger.info(f"[Background Task] Successfully cached {len(recommended_hits)} recommendations for User {user_id}.")
+        logger.info(
+            f"[Background Task] Successfully cached {len(recommended_hits)} recommendations for User {user_id}."
+        )
 
     except Exception as e:
         db.rollback()
-        logger.error(f"[Background Task] Error generating recommendations for User {user_id}: {e}")
+        logger.error(
+            f"[Background Task] Error generating recommendations for User {user_id}: {e}"
+        )
     finally:
         db.close()
 
@@ -75,6 +85,7 @@ def background_rebuild_vocabulary(db_session_factory):
     try:
         logger.info("[Background Task] Rebuilding search spelling vocabulary...")
         from app.services.search.search_pipeline import search_pipeline
+
         search_pipeline.build_vocabulary(db)
     except Exception as e:
         logger.error(f"[Background Task] Error rebuilding vocabulary: {e}")

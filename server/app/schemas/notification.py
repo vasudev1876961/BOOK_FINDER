@@ -1,17 +1,16 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class NotificationBase(BaseModel):
     title: str
     message: str
 
-class NotificationCreate(NotificationBase):
-    user_id: int
 
-class NotificationUpdate(BaseModel):
-    is_read: bool
+class NotificationCreate(NotificationBase):
+    pass
+
 
 class NotificationResponse(NotificationBase):
     id: int
@@ -19,16 +18,9 @@ class NotificationResponse(NotificationBase):
     is_read: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-        # Pydantic v2 configuration
-        json_schema_extra = {
-            "example": {
-                "id": 1,
-                "user_id": 2,
-                "title": "New Recommendation",
-                "message": "We found some books you might like!",
-                "is_read": False,
-                "created_at": "2026-07-17T12:00:00Z"
-            }
-        }
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NotificationListResponse(BaseModel):
+    notifications: list[NotificationResponse]
+    unread_count: int

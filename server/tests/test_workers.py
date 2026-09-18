@@ -17,9 +17,10 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 @pytest.fixture(name="db_session")
 def db_session_fixture():
@@ -28,16 +29,14 @@ def db_session_fixture():
     try:
         # Seed basic book and user records
         b1 = Book(
-            title="Sapiens",
-            description="A brief history of humankind.",
-            rating=4.8
+            title="Sapiens", description="A brief history of humankind.", rating=4.8
         )
         u1 = User(
             email="worker_test@example.com",
             hashed_password="hashed_pw",
             full_name="Worker Tester",
             is_active=True,
-            role="user"
+            role="user",
         )
         db.add_all([b1, u1])
         db.commit()
@@ -58,7 +57,10 @@ def test_background_index_book(db_session):
     # Verify that the book is indexed by checking that we can query vector chunks
     # (Since RAG service uses our local Numpy vector store adapter, we can check it)
     from app.services.rag.vector_store import vector_store
-    results = vector_store.query([0.1] * 384, top_n=5, filter_metadata={"book_id": book.id})
+
+    results = vector_store.query(
+        [0.1] * 384, top_n=5, filter_metadata={"book_id": book.id}
+    )
     assert len(results) > 0
     assert results[0]["metadata"]["book_id"] == book.id
 
@@ -79,7 +81,9 @@ def test_background_rebuild_vocabulary(db_session):
 
 
 def test_background_generate_recommendations(db_session):
-    user = db_session.query(User).filter(User.email == "worker_test@example.com").first()
+    user = (
+        db_session.query(User).filter(User.email == "worker_test@example.com").first()
+    )
     book = db_session.query(Book).filter(Book.title == "Sapiens").first()
 
     # User favorites the book
@@ -88,14 +92,18 @@ def test_background_generate_recommendations(db_session):
     db_session.commit()
 
     # Verify no cached recommendations exist yet
-    cached = db_session.query(Recommendation).filter(Recommendation.user_id == user.id).all()
+    cached = (
+        db_session.query(Recommendation).filter(Recommendation.user_id == user.id).all()
+    )
     assert len(cached) == 0
 
     # Run recommendation precomputation worker
     background_generate_recommendations(TestingSessionLocal, user.id)
 
     # Recommendations should be calculated and stored in cache table
-    cached = db_session.query(Recommendation).filter(Recommendation.user_id == user.id).all()
+    cached = (
+        db_session.query(Recommendation).filter(Recommendation.user_id == user.id).all()
+    )
     assert len(cached) > 0
     assert cached[0].book_id == book.id
     assert cached[0].score > 0.0

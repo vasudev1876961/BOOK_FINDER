@@ -12,7 +12,7 @@ class OcrScannerService:
         file_content: bytes,
         crop_box: list[int] | None = None,
         rotate_angle: int | None = None,
-        binarize: bool = False
+        binarize: bool = False,
     ) -> dict:
         """
         Parses text (Title, Author) from a cover image file.
@@ -23,9 +23,12 @@ class OcrScannerService:
             import io
 
             from PIL import Image
+
             # 1. Convert bytes to PIL Image
             image = Image.open(io.BytesIO(file_content))
-            logger.info(f"Loaded image {filename} (Format: {image.format}, Size: {image.size})")
+            logger.info(
+                f"Loaded image {filename} (Format: {image.format}, Size: {image.size})"
+            )
 
             # 2. Crop if coordinates provided
             if crop_box and len(crop_box) == 4:
@@ -45,7 +48,9 @@ class OcrScannerService:
                 logger.info("Applied binarization to image")
 
         except ImportError:
-            logger.warning("Pillow library (PIL) is not installed. Skipping cover image modifications.")
+            logger.warning(
+                "Pillow library (PIL) is not installed. Skipping cover image modifications."
+            )
         except Exception as e:
             logger.error(f"Image preprocessing failed: {e}")
 
@@ -55,17 +60,19 @@ class OcrScannerService:
             return {
                 "title": "Atomic Habits",
                 "author_name": "James Clear",
-                "parsed_text": "Atomic Habits James Clear Tiny daily improvements yield compounding results"
+                "parsed_text": "Atomic Habits James Clear Tiny daily improvements yield compounding results",
             }
         elif "work" in filename_lower or "deep" in filename_lower:
             return {
                 "title": "Deep Work",
                 "author_name": "Cal Newport",
-                "parsed_text": "Deep Work Cal Newport Rules for focused success in a distracted world"
+                "parsed_text": "Deep Work Cal Newport Rules for focused success in a distracted world",
             }
 
         # Otherwise, try dynamic imports of pytesseract/easyocr or run LLM correction on mock/heuristics
-        raw_ocr_text = "Scanned cover raw text: Title: Clean Code Author: Robert C. Martin"
+        raw_ocr_text = (
+            "Scanned cover raw text: Title: Clean Code Author: Robert C. Martin"
+        )
 
         # Ask the LLM to extract cleanly
         try:
@@ -79,7 +86,7 @@ class OcrScannerService:
             )
             llm_res = llm_provider.generate_text(
                 prompt,
-                "Return only valid JSON. Format: {\"title\": \"...\", \"author_name\": \"...\", \"parsed_text\": \"...\"}"
+                'Return only valid JSON. Format: {"title": "...", "author_name": "...", "parsed_text": "..."}',
             )
             # Cleanup Markdown code block indicators if any
             clean_res = re.sub(r"```json\s*|```", "", llm_res).strip()
@@ -87,7 +94,7 @@ class OcrScannerService:
             return {
                 "title": parsed.get("title", "Clean Code"),
                 "author_name": parsed.get("author_name", "Robert C. Martin"),
-                "parsed_text": parsed.get("parsed_text", raw_ocr_text)
+                "parsed_text": parsed.get("parsed_text", raw_ocr_text),
             }
         except Exception as e:
             logger.error(f"LLM OCR correction fallback failed: {e}")
@@ -95,7 +102,7 @@ class OcrScannerService:
         return {
             "title": "Clean Code",
             "author_name": "Robert C. Martin",
-            "parsed_text": raw_ocr_text
+            "parsed_text": raw_ocr_text,
         }
 
     def scan_isbn_barcode(self, file_content: bytes) -> str | None:
@@ -127,17 +134,26 @@ class OcrScannerService:
 
                         # Extract cover
                         cover = book_data.get("cover", {})
-                        cover_url = cover.get("large") or cover.get("medium") or cover.get("small")
+                        cover_url = (
+                            cover.get("large")
+                            or cover.get("medium")
+                            or cover.get("small")
+                        )
 
                         return {
                             "title": book_data.get("title"),
-                            "description": book_data.get("notes") or book_data.get("subtitle"),
+                            "description": book_data.get("notes")
+                            or book_data.get("subtitle"),
                             "author_name": author_name,
-                            "publisher_name": book_data.get("publishers", [{}])[0].get("name") if book_data.get("publishers") else None,
+                            "publisher_name": book_data.get("publishers", [{}])[0].get(
+                                "name"
+                            )
+                            if book_data.get("publishers")
+                            else None,
                             "pub_date": book_data.get("publish_date"),
                             "pages": book_data.get("number_of_pages"),
                             "cover_url": cover_url,
-                            "isbn": isbn
+                            "isbn": isbn,
                         }
             return None
         except Exception as e:

@@ -11,6 +11,7 @@ from app.services.rag.vector_store import vector_store
 
 try:
     from rapidfuzz import process, utils
+
     has_rapidfuzz = True
 except ImportError:
     has_rapidfuzz = False
@@ -26,7 +27,7 @@ class SearchPipeline:
             "productivity": ["efficiency", "focus", "deep"],
             "habit": ["routine", "behavior", "atomic"],
             "ai": ["artificial", "intelligence", "rag", "assistant"],
-            "vector": ["embeddings", "semantic", "similarity"]
+            "vector": ["embeddings", "semantic", "similarity"],
         }
 
     def normalize_query(self, query: str) -> str:
@@ -65,7 +66,9 @@ class SearchPipeline:
 
             # Filter out short or numeric tokens
             self.vocabulary = {t for t in vocab if len(t) > 2 and not t.isdigit()}
-            logger.info(f"Built spellcheck vocabulary with {len(self.vocabulary)} terms.")
+            logger.info(
+                f"Built spellcheck vocabulary with {len(self.vocabulary)} terms."
+            )
         except Exception as e:
             logger.error(f"Failed to build search vocabulary: {e}")
 
@@ -99,17 +102,16 @@ class SearchPipeline:
             # Find closest match in vocabulary
             # score_cutoff restricts matching to reasonably close words
             match = process.extractOne(
-                token,
-                self.vocabulary,
-                processor=utils.default_process,
-                score_cutoff=65
+                token, self.vocabulary, processor=utils.default_process, score_cutoff=65
             )
 
             if match:
                 corrected_word = match[0]
                 corrected_tokens.append(corrected_word)
                 changed = True
-                logger.info(f"Corrected typo '{token}' -> '{corrected_word}' (score: {match[1]})")
+                logger.info(
+                    f"Corrected typo '{token}' -> '{corrected_word}' (score: {match[1]})"
+                )
             else:
                 corrected_tokens.append(token)
 
@@ -154,7 +156,12 @@ class SearchPipeline:
             desc_tokens = self._tokenize(book.description) if book.description else []
 
             # Weighted virtual document
-            tokens = (title_tokens * 4) + (author_tokens * 2) + (genre_tokens * 2) + desc_tokens
+            tokens = (
+                (title_tokens * 4)
+                + (author_tokens * 2)
+                + (genre_tokens * 2)
+                + desc_tokens
+            )
             corpus[book.id] = tokens
             doc_lengths[book.id] = len(tokens)
 
@@ -192,7 +199,9 @@ class SearchPipeline:
 
                 # BM25 tf score
                 numerator = term_count_in_doc * (k1 + 1)
-                denominator = term_count_in_doc + k1 * (1.0 - b + b * (doc_len / avg_doc_len))
+                denominator = term_count_in_doc + k1 * (
+                    1.0 - b + b * (doc_len / avg_doc_len)
+                )
                 tf_score = numerator / denominator
 
                 score += idf[term] * tf_score
@@ -231,7 +240,7 @@ class SearchPipeline:
         genres_filter: list[str] | None = None,
         min_rating: float | None = None,
         max_pages: int | None = None,
-        language_filter: str | None = None
+        language_filter: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Primary search entry point executing Keyword, Semantic, or Hybrid fusion search.
@@ -265,8 +274,12 @@ class SearchPipeline:
         elif search_type == "hybrid":
             # Reciprocal Rank Fusion (RRF) algorithm
             # Sort keys to establish ranking lists
-            kw_ranked = sorted(kw_scores.keys(), key=lambda x: kw_scores[x], reverse=True)
-            sem_ranked = sorted(sem_scores.keys(), key=lambda x: sem_scores[x], reverse=True)
+            kw_ranked = sorted(
+                kw_scores.keys(), key=lambda x: kw_scores[x], reverse=True
+            )
+            sem_ranked = sorted(
+                sem_scores.keys(), key=lambda x: sem_scores[x], reverse=True
+            )
 
             # Constant k for RRF (standard is 60)
             k = 60
@@ -309,29 +322,31 @@ class SearchPipeline:
             if max_pages and book.pages and book.pages > max_pages:
                 continue
 
-            if language_filter and book.language and book.language.lower() != language_filter.lower():
+            if (
+                language_filter
+                and book.language
+                and book.language.lower() != language_filter.lower()
+            ):
                 continue
 
             # Apply boosting: Score = Score * (1 + 0.1 * rating)
             boosted_score = score
             if book.rating:
-                boosted_score *= (1.0 + 0.05 * book.rating)
+                boosted_score *= 1.0 + 0.05 * book.rating
             if book.rating_count:
                 # Slight boost for high popularity
-                boosted_score *= (1.0 + 0.02 * min(5.0, math.log1p(book.rating_count)))
+                boosted_score *= 1.0 + 0.02 * min(5.0, math.log1p(book.rating_count))
 
             # Freshness boost for newer publications
             pub_year = self._get_pub_year(book.pub_date)
             if pub_year and pub_year >= 2015:
-                boosted_score *= (1.0 + 0.01 * min(5.0, pub_year - 2015))
+                boosted_score *= 1.0 + 0.01 * min(5.0, pub_year - 2015)
 
-            results.append({
-                "book": book,
-                "score": boosted_score
-            })
+            results.append({"book": book, "score": boosted_score})
 
         results.sort(key=lambda x: x["score"], reverse=True)
         return results
+
 
 # Singleton instance
 search_pipeline = SearchPipeline()

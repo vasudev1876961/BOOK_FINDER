@@ -16,9 +16,10 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 @pytest.fixture(name="db_session")
 def db_session_fixture():
@@ -37,7 +38,7 @@ def db_session_fixture():
             rating=4.8,
             pages=320,
             language="English",
-            author=author
+            author=author,
         )
         b2 = Book(
             id=2,
@@ -46,7 +47,7 @@ def db_session_fixture():
             rating=4.7,
             pages=304,
             language="English",
-            author=author
+            author=author,
         )
         db.add_all([b1, b2])
         db.commit()
@@ -54,6 +55,7 @@ def db_session_fixture():
     finally:
         db.close()
         Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture(name="client")
 def client_fixture(db_session):
@@ -116,15 +118,12 @@ def test_api_book_chat_endpoint(client):
         json={
             "email": "chat_user@example.com",
             "password": "testpassword123",
-            "full_name": "Chat User"
-        }
+            "full_name": "Chat User",
+        },
     )
     login_resp = client.post(
         f"{settings.API_V1_STR}/auth/login",
-        json={
-            "email": "chat_user@example.com",
-            "password": "testpassword123"
-        }
+        json={"email": "chat_user@example.com", "password": "testpassword123"},
     )
     access_token = login_resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -132,7 +131,7 @@ def test_api_book_chat_endpoint(client):
     # Call RAG Q&A chat endpoint
     response = client.post(
         f"{settings.API_V1_STR}/books/1/chat?question=What habits are discussed?",
-        headers=headers
+        headers=headers,
     )
     assert response.status_code == 200
     data = response.json()
@@ -149,15 +148,12 @@ def test_api_global_chat_endpoint(client):
         json={
             "email": "chat_user2@example.com",
             "password": "testpassword123",
-            "full_name": "Chat User"
-        }
+            "full_name": "Chat User",
+        },
     )
     login_resp = client.post(
         f"{settings.API_V1_STR}/auth/login",
-        json={
-            "email": "chat_user2@example.com",
-            "password": "testpassword123"
-        }
+        json={"email": "chat_user2@example.com", "password": "testpassword123"},
     )
     access_token = login_resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -165,7 +161,7 @@ def test_api_global_chat_endpoint(client):
     # Call global RAG Q&A chat endpoint
     response = client.post(
         f"{settings.API_V1_STR}/books/chat?question=Recommend some self-help books",
-        headers=headers
+        headers=headers,
     )
     assert response.status_code == 200
     data = response.json()
@@ -183,13 +179,13 @@ def test_review_sentiment_service(db_session):
         book_id=book.id,
         user_id=1,
         rating=5,
-        review_text="This book is outstanding! Tiny habit loops changed my life."
+        review_text="This book is outstanding! Tiny habit loops changed my life.",
     )
     review_b = Review(
         book_id=book.id,
         user_id=2,
         rating=2,
-        review_text="Too repetitive. Could have been a blog post."
+        review_text="Too repetitive. Could have been a blog post.",
     )
     db_session.add_all([review_a, review_b])
     db_session.commit()
@@ -199,14 +195,16 @@ def test_review_sentiment_service(db_session):
 
     assert "review consensus" in report.lower()
 
+
 def test_api_review_sentiment_endpoint(client, db_session):
     from app.database.models import Review
+
     book = db_session.query(Book).filter(Book.id == 1).first()
     review = Review(
         book_id=book.id,
         user_id=1,
         rating=5,
-        review_text="Pure gold! Actionable and inspiring."
+        review_text="Pure gold! Actionable and inspiring.",
     )
     db_session.add(review)
     db_session.commit()
@@ -217,5 +215,3 @@ def test_api_review_sentiment_endpoint(client, db_session):
     assert data["book_id"] == book.id
     assert "sentiment_report" in data
     assert "consensus" in data["sentiment_report"].lower()
-
-

@@ -10,9 +10,15 @@ class ReadingList(Base):
     __tablename__ = "reading_lists"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
-    status = Column(String, nullable=False, default="want_to_read")  # 'want_to_read', 'reading', 'completed'
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    book_id = Column(
+        Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False
+    )
+    status = Column(
+        String, nullable=False, default="want_to_read"
+    )  # 'want_to_read', 'reading', 'completed'
     added_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
 

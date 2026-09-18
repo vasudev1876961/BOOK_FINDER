@@ -18,7 +18,7 @@ router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 def get_user_recommendations(
     limit: int = 10,
     db: Session = Depends(get_db),
-    current_user: Any = Depends(get_current_user)
+    current_user: Any = Depends(get_current_user),
 ):
     # 1. Look for pre-cached recommendations in database
     cached_recs = (
@@ -34,13 +34,17 @@ def get_user_recommendations(
             RecommendedBookResponse(
                 book=BookResponse.from_orm(rec.book),
                 score=rec.score,
-                explanation=rec.explanation or "Matches your reading interests"
-            ) for rec in cached_recs
+                explanation=rec.explanation or "Matches your reading interests",
+            )
+            for rec in cached_recs
         ]
 
     # 2. Cache miss: Compute recommendations on the fly
     from app.core.logging import logger
-    logger.info(f"Recommendation cache miss for user {current_user.id}. Computing on the fly.")
+
+    logger.info(
+        f"Recommendation cache miss for user {current_user.id}. Computing on the fly."
+    )
 
     hits = recommendation_service.get_hybrid_recommendations(db, current_user.id, limit)
 
@@ -52,18 +56,20 @@ def get_user_recommendations(
         RecommendedBookResponse(
             book=BookResponse.from_orm(hit["book"]),
             score=hit["score"],
-            explanation=hit.get("explanation", "Matches your reading interests")
-        ) for hit in hits
+            explanation=hit.get("explanation", "Matches your reading interests"),
+        )
+        for hit in hits
     ]
 
 
 @router.post("/recalculate", status_code=status.HTTP_202_ACCEPTED)
 def recalculate_user_recommendations(
-    background_tasks: BackgroundTasks,
-    current_user: Any = Depends(get_current_user)
+    background_tasks: BackgroundTasks, current_user: Any = Depends(get_current_user)
 ):
     """
     Trigger manual pre-computation of hybrid recommendations in the background.
     """
-    background_tasks.add_task(background_generate_recommendations, SessionLocal, current_user.id)
+    background_tasks.add_task(
+        background_generate_recommendations, SessionLocal, current_user.id
+    )
     return {"message": "Recommendation pre-computation started in background."}

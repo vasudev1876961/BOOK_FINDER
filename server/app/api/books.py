@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.orm import Session
 
@@ -7,10 +6,12 @@ from app.core.exceptions import EntityNotFoundException
 from app.database.database import SessionLocal, get_db
 from app.database.models import Author, Book, Genre, Publisher
 from app.schemas.book import BookCreate, BookResponse, BookUpdate
+from app.schemas.ingestion import GoogleBookIngestRequest, GoogleBookSearchResult
 from app.schemas.user import UserResponse
 from app.services.ai.comparison_service import book_comparison_service
 from app.services.ai.summarizer import book_summarizer
 from app.services.cache.cache_service import cache_service
+from app.services.ingestion.google_books import google_books_service
 from app.services.rag.rag_service import rag_service
 from app.services.workers.tasks import (
     background_index_book,
@@ -19,21 +20,19 @@ from app.services.workers.tasks import (
 
 router = APIRouter(prefix="/books", tags=["Books"])
 
+
 @router.get("/", response_model=list[BookResponse])
-def list_books(
-    skip: int = 0,
-    limit: int = 12,
-    db: Session = Depends(get_db)
-):
+def list_books(skip: int = 0, limit: int = 12, db: Session = Depends(get_db)):
     books = db.query(Book).offset(skip).limit(limit).all()
     return books
+
 
 @router.post("/", response_model=BookResponse, status_code=status.HTTP_201_CREATED)
 def create_book(
     book_in: BookCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: UserResponse = Depends(get_current_admin)  # Guarded: Admin only
+    current_user: UserResponse = Depends(get_current_admin),  # Guarded: Admin only
 ):
     # 1. Author Lookup or Creation
     author = None
@@ -47,7 +46,9 @@ def create_book(
     # 2. Publisher Lookup or Creation
     publisher = None
     if book_in.publisher_name:
-        publisher = db.query(Publisher).filter(Publisher.name == book_in.publisher_name).first()
+        publisher = (
+            db.query(Publisher).filter(Publisher.name == book_in.publisher_name).first()
+        )
         if not publisher:
             publisher = Publisher(name=book_in.publisher_name)
             db.add(publisher)
@@ -74,7 +75,7 @@ def create_book(
         language=book_in.language,
         author=author,
         publisher=publisher,
-        genres=genre_objects
+        genres=genre_objects,
     )
     db.add(db_book)
     db.commit()
@@ -85,6 +86,39 @@ def create_book(
     background_tasks.add_task(background_rebuild_vocabulary, SessionLocal)
 
     return db_book
+
+
+@router.get("/external/search", response_model=list[GoogleBookSearchResult])
+def search_external_books(
+    q: str,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Depends(get_current_admin),
+):
+    """
+    Search books on Google Books API for catalog ingestion.
+    """
+    return google_books_service.search_google_books(query=q, db=db, limit=limit)
+
+
+@router.post(
+    "/external/ingest", response_model=BookResponse, status_code=status.HTTP_201_CREATED
+)
+def ingest_external_book(
+    book_in: GoogleBookIngestRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Depends(get_current_admin),
+):
+    """
+    1-click ingestion of a book from Google Books into Aetheria catalog with deduplication.
+    """
+    return google_books_service.ingest_book(
+        req=book_in,
+        db=db,
+        background_tasks=background_tasks,
+    )
+
 
 @router.get("/{book_id}", response_model=BookResponse)
 def get_book(book_id: int, db: Session = Depends(get_db)):
@@ -101,12 +135,13 @@ def get_book(book_id: int, db: Session = Depends(get_db)):
     cache_service.set(cache_key, serialized, expire_seconds=3600)
     return book
 
+
 @router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_book(
     book_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: UserResponse = Depends(get_current_admin)  # Guarded: Admin only
+    current_user: UserResponse = Depends(get_current_admin),  # Guarded: Admin only
 ):
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
@@ -125,13 +160,14 @@ def delete_book(
     background_tasks.add_task(background_rebuild_vocabulary, SessionLocal)
     return None
 
+
 @router.put("/{book_id}", response_model=BookResponse)
 def update_book(
     book_id: int,
     book_in: BookUpdate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: UserResponse = Depends(get_current_admin)
+    current_user: UserResponse = Depends(get_current_admin),
 ):
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
@@ -140,7 +176,15 @@ def update_book(
     update_data = book_in.model_dump(exclude_unset=True)
 
     # 1. Update basic fields
-    for field in ["title", "description", "isbn", "pub_date", "pages", "cover_url", "language"]:
+    for field in [
+        "title",
+        "description",
+        "isbn",
+        "pub_date",
+        "pages",
+        "cover_url",
+        "language",
+    ]:
         if field in update_data:
             setattr(book, field, update_data[field])
 
@@ -152,7 +196,11 @@ def update_book(
 
     # 3. Update publisher relationship
     if "publisher_id" in update_data:
-        publisher = db.query(Publisher).filter(Publisher.id == update_data["publisher_id"]).first()
+        publisher = (
+            db.query(Publisher)
+            .filter(Publisher.id == update_data["publisher_id"])
+            .first()
+        )
         if publisher:
             book.publisher = publisher
 
@@ -184,6 +232,7 @@ def update_book(
 
     return book
 
+
 @router.get("/{book_id}/ai-summary")
 def get_book_ai_summary(book_id: int, db: Session = Depends(get_db)):
     book = db.query(Book).filter(Book.id == book_id).first()
@@ -193,12 +242,9 @@ def get_book_ai_summary(book_id: int, db: Session = Depends(get_db)):
     summary = book_summarizer.generate_summary(book)
     return {"book_id": book_id, "summary": summary}
 
+
 @router.post("/compare")
-def compare_books(
-    book_id_a: int,
-    book_id_b: int,
-    db: Session = Depends(get_db)
-):
+def compare_books(book_id_a: int, book_id_b: int, db: Session = Depends(get_db)):
     book_a = db.query(Book).filter(Book.id == book_id_a).first()
     book_b = db.query(Book).filter(Book.id == book_id_b).first()
     if not book_a or not book_b:
@@ -207,42 +253,34 @@ def compare_books(
             missing.append(f"Book A ({book_id_a})")
         if not book_b:
             missing.append(f"Book B ({book_id_b})")
-        raise EntityNotFoundException(entity_name="Book Comparison Target", entity_id=", ".join(missing))
+        raise EntityNotFoundException(
+            entity_name="Book Comparison Target", entity_id=", ".join(missing)
+        )
 
     comparison = book_comparison_service.compare_books(book_a, book_b)
-    return {
-        "book_a_id": book_id_a,
-        "book_b_id": book_id_b,
-        "comparison": comparison
-    }
+    return {"book_a_id": book_id_a, "book_b_id": book_id_b, "comparison": comparison}
+
 
 @router.post("/{book_id}/chat")
 def chat_with_book(
     book_id: int,
     question: str,
     db: Session = Depends(get_db),
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
 ):
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
         raise EntityNotFoundException(entity_name="Book", entity_id=str(book_id))
 
     answer = rag_service.chat_with_book(db, book, question)
-    return {
-        "book_id": book_id,
-        "question": question,
-        "answer": answer
-    }
+    return {"book_id": book_id, "question": question, "answer": answer}
 
 
 @router.post("/chat")
 def chat_with_library(
     question: str,
     db: Session = Depends(get_db),
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
 ):
     answer = rag_service.chat_with_library(db, question)
-    return {
-        "question": question,
-        "answer": answer
-    }
+    return {"question": question, "answer": answer}

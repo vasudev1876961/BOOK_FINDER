@@ -15,6 +15,7 @@ def temp_vector_store(tmp_path):
     if os.path.exists(str(db_file)):
         os.remove(str(db_file))
 
+
 def test_numpy_store_basic_operations(temp_vector_store):
     store = temp_vector_store
 
@@ -22,12 +23,12 @@ def test_numpy_store_basic_operations(temp_vector_store):
     ids = ["chunk_1", "chunk_2"]
     vectors = [
         [1.0, 0.0, 0.0],  # Orthogonal vectors
-        [0.0, 1.0, 0.0]
+        [0.0, 1.0, 0.0],
     ]
     texts = ["This is context A.", "This is context B."]
     metadatas = [
         {"book_id": 1, "section": "intro"},
-        {"book_id": 2, "section": "chapter_1"}
+        {"book_id": 2, "section": "chapter_1"},
     ]
 
     store.add_chunks(ids, vectors, texts, metadatas)
@@ -44,14 +45,13 @@ def test_numpy_store_basic_operations(temp_vector_store):
 
     # 3. Query with metadata filter
     results_filtered = store.query(
-        query_vector=[1.0, 0.0, 0.0],
-        top_n=5,
-        filter_metadata={"book_id": 2}
+        query_vector=[1.0, 0.0, 0.0], top_n=5, filter_metadata={"book_id": 2}
     )
     # Even though query is closer to chunk_1, it should only return chunk_2 due to filter
     assert len(results_filtered) == 1
     assert results_filtered[0]["id"] == "chunk_2"
     assert pytest.approx(results_filtered[0]["score"]) == 0.0  # Orthogonal
+
 
 def test_numpy_store_delete_by_book(temp_vector_store):
     store = temp_vector_store
@@ -59,11 +59,7 @@ def test_numpy_store_delete_by_book(temp_vector_store):
     ids = ["chunk_1", "chunk_2", "chunk_3"]
     vectors = [[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]]
     texts = ["Text A", "Text B", "Text C"]
-    metadatas = [
-        {"book_id": 1},
-        {"book_id": 1},
-        {"book_id": 2}
-    ]
+    metadatas = [{"book_id": 1}, {"book_id": 1}, {"book_id": 2}]
 
     store.add_chunks(ids, vectors, texts, metadatas)
     assert len(store.data) == 3
@@ -76,6 +72,7 @@ def test_numpy_store_delete_by_book(temp_vector_store):
     assert "chunk_3" in store.data
     assert "chunk_1" not in store.data
 
+
 def test_numpy_store_persistence(tmp_path):
     db_file = tmp_path / "persistent_test.pkl"
 
@@ -85,7 +82,7 @@ def test_numpy_store_persistence(tmp_path):
         ids=["c1"],
         vectors=[[1.0, 0.0]],
         texts=["Data content"],
-        metadatas=[{"book_id": 5}]
+        metadatas=[{"book_id": 5}],
     )
 
     # Initialize second instance using same file path

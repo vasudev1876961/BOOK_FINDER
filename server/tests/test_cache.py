@@ -15,9 +15,10 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 @pytest.fixture(name="db_session")
 def db_session_fixture():
@@ -35,7 +36,7 @@ def db_session_fixture():
             rating=4.8,
             pages=320,
             language="English",
-            author=author
+            author=author,
         )
         db.add(b1)
         db.commit()
@@ -43,6 +44,7 @@ def db_session_fixture():
     finally:
         db.close()
         Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture(name="client")
 def client_fixture(db_session):
@@ -83,21 +85,21 @@ def test_api_cache_aside_flow(client, db_session):
         json={
             "email": "admin_cache@example.com",
             "password": "testpassword123",
-            "full_name": "Admin Cache"
-        }
+            "full_name": "Admin Cache",
+        },
     )
     # Mocking admin role promotion
     from app.database.models import User
-    admin_user = db_session.query(User).filter(User.email == "admin_cache@example.com").first()
+
+    admin_user = (
+        db_session.query(User).filter(User.email == "admin_cache@example.com").first()
+    )
     admin_user.role = "admin"
     db_session.commit()
 
     login_resp = client.post(
         f"{settings.API_V1_STR}/auth/login",
-        json={
-            "email": "admin_cache@example.com",
-            "password": "testpassword123"
-        }
+        json={"email": "admin_cache@example.com", "password": "testpassword123"},
     )
     access_token = login_resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -126,13 +128,9 @@ def test_api_cache_aside_flow(client, db_session):
     assert response_cached.json()["title"] == "Atomic Habits"
 
     # 3. Call update endpoint to trigger cache invalidation
-    update_payload = {
-        "title": "Atomic Habits New Title"
-    }
+    update_payload = {"title": "Atomic Habits New Title"}
     response_update = client.put(
-        f"{settings.API_V1_STR}/books/1",
-        json=update_payload,
-        headers=headers
+        f"{settings.API_V1_STR}/books/1", json=update_payload, headers=headers
     )
     assert response_update.status_code == 200
 

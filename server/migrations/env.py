@@ -73,14 +73,14 @@ def run_migrations_online() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        connect_args=connect_args
+        connect_args=connect_args,
     )
 
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            render_as_batch=True  # Required for SQLite migration support (batch edits)
+            render_as_batch=True,  # Required for SQLite migration support (batch edits)
         )
 
         with context.begin_transaction():

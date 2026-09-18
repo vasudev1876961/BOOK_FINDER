@@ -26,9 +26,21 @@ class User(Base):
     last_page_read_date = Column(String, default="")
 
     # Relationships
-    reviews = relationship("Review", back_populates="user", cascade="all, delete-orphan")
-    favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
-    reading_lists = relationship("ReadingList", back_populates="user", cascade="all, delete-orphan")
-    search_histories = relationship("SearchHistory", back_populates="user", cascade="all, delete-orphan")
-    recommendations = relationship("Recommendation", back_populates="user", cascade="all, delete-orphan")
-    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    reviews = relationship(
+        "Review", back_populates="user", cascade="all, delete-orphan"
+    )
+    favorites = relationship(
+        "Favorite", back_populates="user", cascade="all, delete-orphan"
+    )
+    reading_lists = relationship(
+        "ReadingList", back_populates="user", cascade="all, delete-orphan"
+    )
+    search_histories = relationship(
+        "SearchHistory", back_populates="user", cascade="all, delete-orphan"
+    )
+    recommendations = relationship(
+        "Recommendation", back_populates="user", cascade="all, delete-orphan"
+    )
+    notifications = relationship(
+        "Notification", back_populates="user", cascade="all, delete-orphan"
+    )

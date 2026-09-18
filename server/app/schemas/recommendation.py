@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.schemas.book import BookResponse
 
@@ -8,5 +8,4 @@ class RecommendedBookResponse(BaseModel):
     score: float
     explanation: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

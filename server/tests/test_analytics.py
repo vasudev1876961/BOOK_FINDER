@@ -12,9 +12,10 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 @pytest.fixture(name="db_session")
 def db_session_fixture():
@@ -25,6 +26,7 @@ def db_session_fixture():
     finally:
         db.close()
         Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture(name="client")
 def client_fixture(db_session):
@@ -38,6 +40,7 @@ def client_fixture(db_session):
     yield TestClient(app)
     app.dependency_overrides.clear()
 
+
 @pytest.fixture(name="auth_headers")
 def auth_headers_fixture(client):
     # Register and login cleanly
@@ -46,18 +49,16 @@ def auth_headers_fixture(client):
         json={
             "email": "analytics_tester@example.com",
             "password": "testpassword123",
-            "full_name": "Analytics Tester"
-        }
+            "full_name": "Analytics Tester",
+        },
     )
     login_resp = client.post(
         f"{settings.API_V1_STR}/auth/login",
-        json={
-            "email": "analytics_tester@example.com",
-            "password": "testpassword123"
-        }
+        json={"email": "analytics_tester@example.com", "password": "testpassword123"},
     )
     token = login_resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
 
 def test_goals_default_and_updates(client, auth_headers):
     # 1. Fetch defaults
@@ -77,9 +78,9 @@ def test_goals_default_and_updates(client, auth_headers):
             "daily_pages_goal": 50,
             "monthly_books_goal": 5,
             "yearly_books_goal": 20,
-            "reading_speed": 2.0
+            "reading_speed": 2.0,
         },
-        headers=auth_headers
+        headers=auth_headers,
     )
     assert update_resp.status_code == 200
 
@@ -91,12 +92,13 @@ def test_goals_default_and_updates(client, auth_headers):
     assert data2["yearly_books_goal"] == 20
     assert data2["reading_speed"] == 2.0
 
+
 def test_log_pages_progress(client, auth_headers):
     # 1. Log 15 pages
     log_resp = client.post(
         f"{settings.API_V1_STR}/analytics/log-pages",
         json={"pages": 15},
-        headers=auth_headers
+        headers=auth_headers,
     )
     assert log_resp.status_code == 200
     assert log_resp.json()["daily_pages_read"] == 15
@@ -105,7 +107,7 @@ def test_log_pages_progress(client, auth_headers):
     log_resp2 = client.post(
         f"{settings.API_V1_STR}/analytics/log-pages",
         json={"pages": 10},
-        headers=auth_headers
+        headers=auth_headers,
     )
     assert log_resp2.status_code == 200
     assert log_resp2.json()["daily_pages_read"] == 25

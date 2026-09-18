@@ -15,9 +15,11 @@ class SearchRequest(BaseModel):
     page: int = 1
     page_size: int = 12
 
+
 class SearchResultItem(BaseModel):
     book: BookResponse
     score: float  # RRF score or similarity score
+
 
 class SearchResponse(BaseModel):
     query: str

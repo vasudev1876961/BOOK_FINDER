@@ -160,7 +160,16 @@ class ApiClient {
     });
   }
 
+  public static patch(endpoint: string, body: any = {}, options: RequestOptions = {}) {
+    return this.request(endpoint, {
+      ...options,
+      method: "PATCH",
+      body: body instanceof FormData ? body : JSON.stringify(body)
+    });
+  }
+
   public static delete(endpoint: string, options: RequestOptions = {}) {
+
     return this.request(endpoint, { ...options, method: "DELETE" });
   }
 }

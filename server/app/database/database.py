@@ -18,16 +18,14 @@ if settings.DATABASE_URL == "sqlite:///:memory:":
         poolclass=StaticPool,
     )
 else:
-    engine = create_engine(
-        settings.DATABASE_URL,
-        connect_args=connect_args
-    )
+    engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Declarative Base
 Base = declarative_base()
+
 
 # DB Dependency for routing
 def get_db():

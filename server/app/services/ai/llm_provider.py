@@ -1,4 +1,3 @@
-
 import httpx
 
 from app.core.config import settings
@@ -14,6 +13,7 @@ class MockLlmProvider(LlmProvider):
     """
     Returns realistic mocked responses for testing and demonstrations.
     """
+
     def generate_text(self, prompt: str, system_prompt: str | None = None) -> str:
         prompt_lower = prompt.lower()
 
@@ -35,7 +35,11 @@ class MockLlmProvider(LlmProvider):
             )
 
         # 2. Review Sentiment Synthesis
-        elif "review" in prompt_lower or "sentiment" in prompt_lower or "consensus" in prompt_lower:
+        elif (
+            "review" in prompt_lower
+            or "sentiment" in prompt_lower
+            or "consensus" in prompt_lower
+        ):
             return (
                 "### Review Consensus\n"
                 "The community has an overwhelmingly positive consensus towards this book, praising its high actionability and clear, structured lessons, though a few readers noted minor repetition.\n\n"
@@ -87,7 +91,11 @@ class MockLlmProvider(LlmProvider):
                 )
 
         # 3. AI Librarian Chatbot
-        elif "recommend" in prompt_lower or "i want" in prompt_lower or "looking for" in prompt_lower:
+        elif (
+            "recommend" in prompt_lower
+            or "i want" in prompt_lower
+            or "looking for" in prompt_lower
+        ):
             return (
                 "I would highly recommend checking out **Deep Work** by Cal Newport and **Atomic Habits** by James Clear. "
                 "These books focus heavily on focus, productivity, and optimization. If you prefer high-intensity coding, "
@@ -106,8 +114,10 @@ class OpenAiLlmProvider(LlmProvider):
     """
     Connects to OpenAI Chat Completion API.
     """
+
     def __init__(self):
         from openai import OpenAI
+
         self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
     def generate_text(self, prompt: str, system_prompt: str | None = None) -> str:
@@ -118,10 +128,7 @@ class OpenAiLlmProvider(LlmProvider):
 
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                temperature=0.7,
-                max_tokens=800
+                model="gpt-4o-mini", messages=messages, temperature=0.7, max_tokens=800
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -133,6 +140,7 @@ class OllamaLlmProvider(LlmProvider):
     """
     Connects to locally running Ollama instance.
     """
+
     def generate_text(self, prompt: str, system_prompt: str | None = None) -> str:
         url = f"{settings.OLLAMA_HOST}/api/chat"
 
@@ -145,9 +153,7 @@ class OllamaLlmProvider(LlmProvider):
             "model": settings.OLLAMA_MODEL,
             "messages": messages,
             "stream": False,
-            "options": {
-                "temperature": 0.7
-            }
+            "options": {"temperature": 0.7},
         }
 
         try:
@@ -160,7 +166,9 @@ class OllamaLlmProvider(LlmProvider):
                     logger.error(f"Ollama returned error: {response.text}")
                     return MockLlmProvider().generate_text(prompt, system_prompt)
         except Exception as e:
-            logger.error(f"Ollama connection failed: {e}. Falling back to mock response.")
+            logger.error(
+                f"Ollama connection failed: {e}. Falling back to mock response."
+            )
             return MockLlmProvider().generate_text(prompt, system_prompt)
 
 
@@ -169,6 +177,7 @@ def get_llm_provider() -> LlmProvider:
     if settings.LLM_PROVIDER == "openai" and settings.OPENAI_API_KEY:
         try:
             import importlib.util
+
             if importlib.util.find_spec("openai") is None:
                 raise ImportError()
             return OpenAiLlmProvider()
@@ -179,5 +188,6 @@ def get_llm_provider() -> LlmProvider:
         return OllamaLlmProvider()
 
     return MockLlmProvider()
+
 
 llm_provider = get_llm_provider()

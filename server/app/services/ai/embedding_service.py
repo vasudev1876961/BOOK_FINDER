@@ -12,7 +12,10 @@ class EmbeddingService:
 
         try:
             from sentence_transformers import SentenceTransformer
-            logger.info(f"Loading SentenceTransformer model: {settings.EMBEDDING_MODEL_NAME}...")
+
+            logger.info(
+                f"Loading SentenceTransformer model: {settings.EMBEDDING_MODEL_NAME}..."
+            )
             self.model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
             self.is_mock = False
             logger.info("SentenceTransformer model loaded successfully!")
@@ -36,14 +39,19 @@ class EmbeddingService:
                 embedding = self.model.encode(text)
                 return embedding.tolist()
             except Exception as e:
-                logger.error(f"Error generating real embedding: {e}. Falling back to mock.")
+                logger.error(
+                    f"Error generating real embedding: {e}. Falling back to mock."
+                )
 
         # Deterministic Mock Embedding:
         # Generates a stable float vector of size 384 using SHA-256 offsets
         import numpy as np
+
         # Seed generator based on text hash
         hash_val = int(hashlib.sha256(text.encode("utf-8")).hexdigest(), 16)
-        rng = np.random.default_rng(hash_val & 0xFFFFFFFF)  # Seed needs to fit in 32-bit int
+        rng = np.random.default_rng(
+            hash_val & 0xFFFFFFFF
+        )  # Seed needs to fit in 32-bit int
 
         # Generate random normal vector, then normalize it to unit length (cosine similarity ready)
         vec = rng.normal(0, 1, self.dimension)
@@ -57,6 +65,7 @@ class EmbeddingService:
         Batch generate embeddings.
         """
         return [self.get_embedding(t) for t in texts]
+
 
 # Singleton instance
 embedding_service = EmbeddingService()

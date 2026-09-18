@@ -12,4 +12,6 @@ class Genre(Base):
     name = Column(String, unique=True, index=True, nullable=False)
 
     # Relationships
-    books = relationship("Book", secondary=book_genre_association, back_populates="genres")
+    books = relationship(
+        "Book", secondary=book_genre_association, back_populates="genres"
+    )

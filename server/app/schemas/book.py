@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.author import AuthorResponse
@@ -15,10 +14,12 @@ class BookBase(BaseModel):
     cover_url: str | None = None
     language: str | None = "English"
 
+
 class BookCreate(BookBase):
     author_name: str | None = None  # Autocreate author if not found
     publisher_name: str | None = None  # Autocreate publisher if not found
     genres: list[str] = []  # Names of genres, created if not exists
+
 
 class BookUpdate(BaseModel):
     title: str | None = None
@@ -31,6 +32,7 @@ class BookUpdate(BaseModel):
     author_id: int | None = None
     publisher_id: int | None = None
     genres: list[str] | None = None
+
 
 class BookResponse(BookBase):
     id: int

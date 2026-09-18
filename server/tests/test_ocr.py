@@ -8,6 +8,7 @@ from app.main import app
 
 client = TestClient(app)
 
+
 @pytest.fixture(name="auth_headers")
 def auth_headers_fixture():
     # Register and login to generate authorization headers
@@ -16,15 +17,12 @@ def auth_headers_fixture():
         json={
             "email": "ocr_test@user.com",
             "password": "testpassword123",
-            "full_name": "OCR Tester"
-        }
+            "full_name": "OCR Tester",
+        },
     )
     login_resp = client.post(
         f"{settings.API_V1_STR}/auth/login",
-        json={
-            "email": "ocr_test@user.com",
-            "password": "testpassword123"
-        }
+        json={"email": "ocr_test@user.com", "password": "testpassword123"},
     )
     token = login_resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
@@ -35,9 +33,7 @@ def test_parse_cover_endpoint(auth_headers):
     files = {"file": ("atomic_habits.jpg", b"fake image bytes", "image/jpeg")}
 
     response = client.post(
-        f"{settings.API_V1_STR}/ocr/parse-cover",
-        files=files,
-        headers=auth_headers
+        f"{settings.API_V1_STR}/ocr/parse-cover", files=files, headers=auth_headers
     )
     assert response.status_code == 200
     data = response.json()
@@ -61,16 +57,14 @@ def test_scan_barcode_endpoint(mock_client_class, auth_headers):
             "publishers": [{"name": "Harper"}],
             "publish_date": "2015",
             "number_of_pages": 443,
-            "cover": {"large": "https://cover-link.com"}
+            "cover": {"large": "https://cover-link.com"},
         }
     }
     mock_client.get.return_value = mock_response
 
     files = {"file": ("barcode.png", b"fake barcode bytes", "image/png")}
     response = client.post(
-        f"{settings.API_V1_STR}/ocr/scan-barcode",
-        files=files,
-        headers=auth_headers
+        f"{settings.API_V1_STR}/ocr/scan-barcode", files=files, headers=auth_headers
     )
 
     assert response.status_code == 200

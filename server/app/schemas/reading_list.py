@@ -9,11 +9,14 @@ from app.schemas.book import BookResponse
 class ReadingListBase(BaseModel):
     status: Literal["want_to_read", "reading", "completed"]
 
+
 class ReadingListCreate(ReadingListBase):
     book_id: int
 
+
 class ReadingListUpdate(BaseModel):
     status: Literal["want_to_read", "reading", "completed"]
+
 
 class ReadingListResponse(ReadingListBase):
     id: int

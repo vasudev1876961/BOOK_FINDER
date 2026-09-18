@@ -3,7 +3,8 @@ import ApiClient from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { 
   Plus, Edit2, Trash2, Library, AlertTriangle, 
-  X, Save, BookOpen, Search, Info, Sparkles, UploadCloud, Camera 
+  X, Save, BookOpen, Search, Info, Sparkles, UploadCloud, Camera,
+  Globe, Check, CheckCircle2, Loader2
 } from "lucide-react";
 
 interface Book {
@@ -18,6 +19,21 @@ interface Book {
   author?: { name: string };
   publisher?: { name: string };
   genres?: { name: string }[];
+}
+
+interface GoogleSearchResult {
+  id: string;
+  title: string;
+  authors: string[];
+  publisher?: string;
+  published_date?: string;
+  description?: string;
+  isbn?: string;
+  pages?: number;
+  cover_url?: string;
+  language: string;
+  categories: string[];
+  already_exists: boolean;
 }
 
 export default function AdminCatalog() {
@@ -46,6 +62,61 @@ export default function AdminCatalog() {
 
   const [saving, setSaving] = useState(false);
   const [scanStatus, setScanStatus] = useState("");
+
+  // Google Books Ingestion Modal States
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleQuery, setGoogleQuery] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleResults, setGoogleResults] = useState<GoogleSearchResult[]>([]);
+  const [googleError, setGoogleError] = useState("");
+  const [ingestingId, setIngestingId] = useState<string | null>(null);
+  const [ingestSuccessMsg, setIngestSuccessMsg] = useState("");
+
+  const handleSearchGoogle = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!googleQuery.trim()) return;
+    setGoogleLoading(true);
+    setGoogleError("");
+    setIngestSuccessMsg("");
+    try {
+      const data = await ApiClient.get(`/books/external/search?q=${encodeURIComponent(googleQuery)}`);
+      setGoogleResults(data || []);
+      if (!data || data.length === 0) {
+        setGoogleError("No matching books found on Google Books.");
+      }
+    } catch (err: any) {
+      setGoogleError(err.message || "Failed to query Google Books API.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleIngestGoogleBook = async (item: GoogleSearchResult) => {
+    setIngestingId(item.id);
+    setGoogleError("");
+    setIngestSuccessMsg("");
+    try {
+      await ApiClient.post("/books/external/ingest", {
+        title: item.title,
+        author_name: item.authors[0] || null,
+        publisher_name: item.publisher || null,
+        description: item.description || null,
+        isbn: item.isbn || null,
+        pub_date: item.published_date || null,
+        pages: item.pages || null,
+        cover_url: item.cover_url || null,
+        language: item.language === "en" ? "English" : item.language,
+        genres: item.categories || []
+      });
+      setGoogleResults(prev => prev.map(b => b.id === item.id ? { ...b, already_exists: true } : b));
+      setIngestSuccessMsg(`"${item.title}" successfully ingested and queued for vector embedding!`);
+      fetchCatalog();
+    } catch (err: any) {
+      setGoogleError(err.message || "Failed to ingest book.");
+    } finally {
+      setIngestingId(null);
+    }
+  };
 
   const handleOcrCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -247,13 +318,26 @@ export default function AdminCatalog() {
             Create, update, and manage indexed books in the Aetheria search directory
           </p>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl transition duration-200 cursor-pointer shadow-lg shadow-emerald-500/10"
-        >
-          <Plus className="w-4 h-4" />
-          Ingest New Book
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setShowGoogleModal(true);
+              setGoogleError("");
+              setIngestSuccessMsg("");
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-500/30 text-sm font-semibold rounded-xl transition duration-200 cursor-pointer shadow-lg shadow-blue-500/10"
+          >
+            <Globe className="w-4 h-4" />
+            Import from Google Books
+          </button>
+          <button
+            onClick={handleOpenAdd}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl transition duration-200 cursor-pointer shadow-lg shadow-emerald-500/10"
+          >
+            <Plus className="w-4 h-4" />
+            Manual Ingest
+          </button>
+        </div>
       </div>
 
       {/* Search Filter Toolbar */}
@@ -586,6 +670,205 @@ export default function AdminCatalog() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Google Books Ingestion Modal */}
+      {showGoogleModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#0c0d12] border border-white/12 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-5 border-b border-white/8 flex items-center justify-between bg-white/2">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Import from Google Books</h2>
+                  <p className="text-xs text-zinc-400">
+                    Extract metadata, clean ISBN, and automatically index embeddings into Aetheria
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowGoogleModal(false)}
+                className="p-2 text-zinc-500 hover:text-white rounded-xl hover:bg-white/5 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search Input Bar */}
+            <div className="p-6 border-b border-white/6 bg-white/1">
+              <form onSubmit={handleSearchGoogle} className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={googleQuery}
+                    onChange={(e) => setGoogleQuery(e.target.value)}
+                    placeholder="Search by book title, author, or ISBN (e.g., 'Atomic Habits', 'Cal Newport')..."
+                    className="w-full glass-input pl-10 pr-4 py-3 text-sm text-white placeholder:text-zinc-600 rounded-xl"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={googleLoading || !googleQuery.trim()}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition flex items-center gap-2 cursor-pointer shrink-0 shadow-lg shadow-blue-600/20"
+                >
+                  {googleLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Searching...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" />
+                      <span>Search Catalog</span>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {/* Quick Suggestion Pills */}
+              <div className="flex items-center gap-2 mt-3 text-[11px] text-zinc-500">
+                <span>Quick search:</span>
+                {["Klara and the Sun", "Clean Architecture", "Atomic Habits", "Project Hail Mary"].map((pill) => (
+                  <button
+                    key={pill}
+                    onClick={() => {
+                      setGoogleQuery(pill);
+                      setTimeout(() => {
+                        setGoogleLoading(true);
+                        setGoogleError("");
+                        ApiClient.get(`/books/external/search?q=${encodeURIComponent(pill)}`)
+                          .then((data) => setGoogleResults(data || []))
+                          .catch((err) => setGoogleError(err.message))
+                          .finally(() => setGoogleLoading(false));
+                      }, 50);
+                    }}
+                    className="px-2 py-0.5 rounded-lg bg-white/4 hover:bg-white/8 text-zinc-400 hover:text-white transition cursor-pointer"
+                  >
+                    {pill}
+                  </button>
+                ))}
+              </div>
+
+              {/* Alerts */}
+              {googleError && (
+                <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{googleError}</span>
+                </div>
+              )}
+              {ingestSuccessMsg && (
+                <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{ingestSuccessMsg}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Results Grid */}
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+              {googleResults.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {googleResults.map((item) => {
+                    const isIngesting = ingestingId === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        className="glass-card p-4 rounded-xl border border-white/8 flex gap-4 hover:border-white/16 transition-all"
+                      >
+                        {/* Thumbnail */}
+                        <div className="w-20 h-28 rounded-lg overflow-hidden shrink-0 bg-zinc-900 border border-white/10 relative">
+                          {item.cover_url ? (
+                            <img
+                              src={item.cover_url}
+                              alt={item.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs">
+                              No Cover
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Details */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-between">
+                          <div>
+                            <h4 className="text-sm font-bold text-white truncate mb-0.5" title={item.title}>
+                              {item.title}
+                            </h4>
+                            <p className="text-xs text-zinc-400 truncate mb-1">
+                              by {item.authors.length > 0 ? item.authors.join(", ") : "Unknown Author"}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                              {item.isbn && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/8 font-mono">
+                                  ISBN {item.isbn}
+                                </span>
+                              )}
+                              {item.pages && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/8">
+                                  {item.pages} p.
+                                </span>
+                              )}
+                              {item.published_date && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/8">
+                                  {item.published_date}
+                                </span>
+                              )}
+                            </div>
+                            {item.description && (
+                              <p className="text-[11px] text-zinc-500 line-clamp-2 leading-relaxed">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Action Button */}
+                          <div className="pt-2 mt-2 border-t border-white/5 flex items-center justify-between">
+                            {item.already_exists ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
+                                <Check className="w-3 h-3" /> Already In Catalog
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleIngestGoogleBook(item)}
+                                disabled={isIngesting}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/10"
+                              >
+                                {isIngesting ? (
+                                  <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <span>Ingesting...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <UploadCloud className="w-3.5 h-3.5" />
+                                    <span>1-Click Ingest</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-16 text-center text-zinc-600 flex flex-col items-center justify-center gap-2">
+                  <Globe className="w-12 h-12 stroke-1 text-zinc-700" />
+                  <p className="text-sm font-medium text-zinc-400">Search for Books on Google</p>
+                  <p className="text-xs text-zinc-600 max-w-sm">
+                    Enter a title, author name, or ISBN above to discover books and ingest them with complete metadata and vector indexing.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

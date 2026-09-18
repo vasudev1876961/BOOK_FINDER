@@ -3,7 +3,9 @@ import sys
 from datetime import datetime
 
 # Ensure backend directory is in the path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from sqlalchemy.orm import Session
 
@@ -34,7 +36,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/91bYsX41hRL.jpg",
         "language": "English",
         "rating": 4.8,
-        "rating_count": 150
+        "rating_count": 150,
     },
     {
         "title": "Deep Work",
@@ -49,7 +51,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/417yF4jI1vL.jpg",
         "language": "English",
         "rating": 4.6,
-        "rating_count": 98
+        "rating_count": 98,
     },
     {
         "title": "Clean Code",
@@ -64,7 +66,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/41SH-I14sNL.jpg",
         "language": "English",
         "rating": 4.7,
-        "rating_count": 85
+        "rating_count": 85,
     },
     {
         "title": "The Hobbit",
@@ -79,7 +81,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/710+HcoPq7L.jpg",
         "language": "English",
         "rating": 4.9,
-        "rating_count": 210
+        "rating_count": 210,
     },
     {
         "title": "Dune",
@@ -94,7 +96,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/41m-vj-mJML.jpg",
         "language": "English",
         "rating": 4.7,
-        "rating_count": 180
+        "rating_count": 180,
     },
     {
         "title": "Sapiens: A Brief History of Humankind",
@@ -109,7 +111,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/713jIoMO3UL.jpg",
         "language": "English",
         "rating": 4.5,
-        "rating_count": 120
+        "rating_count": 120,
     },
     {
         "title": "Thinking, Fast and Slow",
@@ -124,7 +126,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/41shdptqwxL.jpg",
         "language": "English",
         "rating": 4.4,
-        "rating_count": 105
+        "rating_count": 105,
     },
     {
         "title": "The Pragmatic Programmer",
@@ -139,7 +141,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/41as+45FUTL.jpg",
         "language": "English",
         "rating": 4.8,
-        "rating_count": 92
+        "rating_count": 92,
     },
     {
         "title": "Zero to One",
@@ -154,7 +156,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/71uGyZqR2AL.jpg",
         "language": "English",
         "rating": 4.5,
-        "rating_count": 80
+        "rating_count": 80,
     },
     {
         "title": "Educated",
@@ -169,7 +171,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/81W5upn2VNL.jpg",
         "language": "English",
         "rating": 4.7,
-        "rating_count": 130
+        "rating_count": 130,
     },
     {
         "title": "Steve Jobs",
@@ -184,7 +186,7 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/41dK48gB9oL.jpg",
         "language": "English",
         "rating": 4.6,
-        "rating_count": 115
+        "rating_count": 115,
     },
     {
         "title": "The Silent Patient",
@@ -199,9 +201,10 @@ BOOKS_DATA = [
         "cover_url": "https://images-na.ssl-images-amazon.com/images/I/81TxJ6-qZML.jpg",
         "language": "English",
         "rating": 4.3,
-        "rating_count": 140
-    }
+        "rating_count": 140,
+    },
 ]
+
 
 def seed_db():
     db: Session = SessionLocal()
@@ -221,14 +224,14 @@ def seed_db():
             hashed_password=get_password_hash("adminpassword123"),
             full_name="Platform Admin",
             role="admin",
-            is_active=True
+            is_active=True,
         )
         demo_user = User(
             email="demo@bookfinder.com",
             hashed_password=get_password_hash("demopassword123"),
             full_name="Demo Reader",
             role="user",
-            is_active=True
+            is_active=True,
         )
         db.add_all([admin_user, demo_user])
         db.commit()
@@ -244,7 +247,9 @@ def seed_db():
                 db.flush()  # obtain author.id
 
             # Get or create Publisher
-            publisher = db.query(Publisher).filter(Publisher.name == item["publisher"]).first()
+            publisher = (
+                db.query(Publisher).filter(Publisher.name == item["publisher"]).first()
+            )
             if not publisher:
                 publisher = Publisher(name=item["publisher"])
                 db.add(publisher)
@@ -273,7 +278,7 @@ def seed_db():
                 rating_count=item["rating_count"],
                 author=author,
                 publisher=publisher,
-                genres=genre_objects
+                genres=genre_objects,
             )
             db.add(book)
             db.flush()
@@ -287,14 +292,14 @@ def seed_db():
                 book_id=book.id,
                 rating=5,
                 review_text=review_text_positive,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             review_2 = Review(
                 user_id=admin_user.id,
                 book_id=book.id,
                 rating=3,
                 review_text=review_text_critical,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             db.add_all([review_1, review_2])
 
@@ -303,19 +308,19 @@ def seed_db():
             user_id=demo_user.id,
             title="Welcome to Aetheria!",
             message="Welcome to Aetheria AI Book Discovery! Search, create reading lists, and ask our AI librarian anything about books.",
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         notif_user_2 = Notification(
             user_id=demo_user.id,
             title="AI Recommendations Ready",
             message="We precomputed content recommendations based on your preferences. Check them out on your dashboard!",
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         notif_admin = Notification(
             user_id=admin_user.id,
             title="System Alert",
             message="The search index database is successfully synced with the local SQLite storage.",
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         db.add_all([notif_user_1, notif_user_2, notif_admin])
 
@@ -328,6 +333,7 @@ def seed_db():
         raise e
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     seed_db()

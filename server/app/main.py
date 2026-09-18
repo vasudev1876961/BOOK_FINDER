@@ -5,6 +5,7 @@ from app.api import (
     analytics,
     auth,
     books,
+    notifications,
     ocr,
     reading_lists,
     recommendations,
@@ -17,7 +18,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Enterprise AI-Powered Book Discovery and Recommendation Platform API",
     version="1.0.0",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
 )
 
 # CORS configuration
@@ -39,15 +40,15 @@ app.include_router(reviews.router, prefix=settings.API_V1_STR)
 app.include_router(reading_lists.router, prefix=settings.API_V1_STR)
 app.include_router(analytics.router, prefix=settings.API_V1_STR)
 app.include_router(ocr.router, prefix=settings.API_V1_STR)
+app.include_router(notifications.router, prefix=settings.API_V1_STR)
+
 
 @app.get("/", tags=["Health"])
 def health_check():
-    return {
-        "status": "healthy",
-        "project": settings.PROJECT_NAME,
-        "version": "1.0.0"
-    }
+    return {"status": "healthy", "project": settings.PROJECT_NAME, "version": "1.0.0"}
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

@@ -7,8 +7,11 @@ from app.database.models import Author, Book, Genre, Publisher
 from app.services.search.search_pipeline import search_pipeline
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 @pytest.fixture(autouse=True)
 def setup_db():
@@ -32,7 +35,7 @@ def setup_db():
         pub_date="2018-10-16",
         author=author,
         publisher=publisher,
-        genres=[genre]
+        genres=[genre],
     )
     book_2 = Book(
         title="Deep Work",
@@ -43,7 +46,7 @@ def setup_db():
         pub_date="2016-01-05",
         author=author,
         publisher=publisher,
-        genres=[genre]
+        genres=[genre],
     )
     db.add_all([book_1, book_2])
     db.commit()
@@ -56,10 +59,12 @@ def setup_db():
     db.close()
     Base.metadata.drop_all(bind=engine)
 
+
 def test_spell_correct_query(setup_db):
     _db = setup_db
     corrected = search_pipeline.spell_correct_query("Atmoc Habits")
     assert "atomic" in corrected.lower()
+
 
 def test_keyword_bm25_search(setup_db):
     db = setup_db
@@ -71,6 +76,7 @@ def test_keyword_bm25_search(setup_db):
     assert len(results) > 0
     assert results[0]["book"].title == "Deep Work"
 
+
 def test_hybrid_search(setup_db):
     db = setup_db
     results = search_pipeline.search(db, query="habits", search_type="hybrid")
@@ -78,10 +84,12 @@ def test_hybrid_search(setup_db):
     matched_titles = [r["book"].title for r in results]
     assert "Atomic Habits" in matched_titles
 
+
 def test_query_normalization(setup_db):
     # Verify that casing and excessive spaces are normalized
     normalized = search_pipeline.normalize_query("  ATOMIC    HABITS!!!  ")
     assert normalized == "atomic habits"
+
 
 def test_synonym_expansion(setup_db):
     # Verify synonyms dictionary expands keywords
@@ -92,6 +100,7 @@ def test_synonym_expansion(setup_db):
             expanded_tokens.extend(search_pipeline.synonyms[token])
     assert "clean" in expanded_tokens
     assert "design" in expanded_tokens
+
 
 def test_freshness_boosting(setup_db):
     # Verify year parsing from strings

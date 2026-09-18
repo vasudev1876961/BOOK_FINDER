@@ -4,7 +4,8 @@ import ApiClient from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { 
   Star, Heart, BookOpen, Calendar, Hash, Globe, 
-  Send, Sparkles, AlertCircle, RefreshCw, Layers, Check, X 
+  Send, Sparkles, AlertCircle, RefreshCw, Layers, Check, X,
+  Volume2, Play, Pause, Radio
 } from "lucide-react";
 
 interface Book {
@@ -61,6 +62,11 @@ export default function BookDetails() {
   const [formText, setFormText] = useState<string>("");
   const [reviewError, setReviewError] = useState<string>("");
   const [submittingReview, setSubmittingReview] = useState<boolean>(false);
+
+
+  // AI Audio Dossier State
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [audioSpeed, setAudioSpeed] = useState<number>(1.0);
 
   const fetchBookDetails = async () => {
     try {
@@ -125,6 +131,57 @@ export default function BookDetails() {
       console.error("Sentiment consensus failed:", err);
     } finally {
       setLoadingSentiment(false);
+    }
+  };
+
+  // Stop speech when unmounting or switching tabs
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [id, activeTab]);
+
+  const toggleAudioNarration = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      alert("Audio narration is not supported in this browser.");
+      return;
+    }
+
+    if (isPlayingAudio) {
+      window.speechSynthesis.cancel();
+      setIsPlayingAudio(false);
+      return;
+    }
+
+    if (!aiSummary) return;
+
+    // Strip markdown formatting for speech
+    const narrationText = aiSummary
+      .replace(/###/g, "")
+      .replace(/\*\*/g, "")
+      .replace(/#/g, "")
+      .replace(/\[.*?\]/g, "")
+      .trim();
+
+    const utterance = new SpeechSynthesisUtterance(narrationText);
+    utterance.rate = audioSpeed;
+    utterance.pitch = 1.0;
+
+    utterance.onend = () => setIsPlayingAudio(false);
+    utterance.onerror = () => setIsPlayingAudio(false);
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    setIsPlayingAudio(true);
+  };
+
+  const handleSpeedChange = (speed: number) => {
+    setAudioSpeed(speed);
+    if (isPlayingAudio && typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setIsPlayingAudio(false);
     }
   };
 
@@ -431,6 +488,75 @@ export default function BookDetails() {
                   </div>
                 ) : (
                   <div className="space-y-6">
+                    {/* AI Audio Dossier Player */}
+                    <div className="bg-gradient-to-r from-emerald-950/40 via-zinc-900/60 to-purple-950/30 border border-emerald-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+                      <div className="flex items-center gap-3.5">
+                        <button
+                          onClick={toggleAudioNarration}
+                          disabled={!aiSummary || loadingSummary}
+                          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg cursor-pointer ${
+                            isPlayingAudio
+                              ? "bg-emerald-500 text-black shadow-emerald-500/30 scale-105"
+                              : "bg-white/8 hover:bg-emerald-500 hover:text-black text-white border border-white/10"
+                          }`}
+                          title={isPlayingAudio ? "Pause Narration" : "Listen to AI Dossier"}
+                        >
+                          {isPlayingAudio ? (
+                            <Pause className="w-5 h-5 fill-current" />
+                          ) : (
+                            <Play className="w-5 h-5 fill-current ml-0.5" />
+                          )}
+                        </button>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-extrabold text-white tracking-wide uppercase flex items-center gap-1.5">
+                              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                              AI Audio Dossier
+                            </span>
+                            {isPlayingAudio && (
+                              <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30 animate-pulse">
+                                <Radio className="w-2.5 h-2.5" /> Narrating
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            {isPlayingAudio
+                              ? "Streaming synthesized voice summary..."
+                              : "Listen to a 1-minute executive voice summary of this book"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Equalizer & Speed Controls */}
+                      <div className="flex items-center gap-4">
+                        {isPlayingAudio && (
+                          <div className="flex items-end gap-1 h-6 px-3 py-1 bg-black/40 rounded-lg border border-white/5">
+                            <div className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.6s_infinite_100ms] h-4"></div>
+                            <div className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.8s_infinite_200ms] h-5"></div>
+                            <div className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.5s_infinite_300ms] h-3"></div>
+                            <div className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.7s_infinite_150ms] h-6"></div>
+                            <div className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.6s_infinite_250ms] h-4"></div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center bg-black/50 border border-white/10 rounded-xl p-0.5 text-[11px] font-bold">
+                          {[1.0, 1.25, 1.5].map((speed) => (
+                            <button
+                              key={speed}
+                              onClick={() => handleSpeedChange(speed)}
+                              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                                audioSpeed === speed
+                                  ? "bg-emerald-500 text-black"
+                                  : "text-zinc-400 hover:text-white"
+                              }`}
+                            >
+                              {speed}x
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Dashboard Metrics grid */}
                     <div className="grid grid-cols-3 gap-4">
                       <div className="bg-white/2 border border-white/5 rounded-xl p-3 text-center">

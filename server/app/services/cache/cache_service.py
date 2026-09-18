@@ -6,9 +6,11 @@ from app.core.logging import logger
 
 try:
     import redis
+
     redis_available = True
 except ImportError:
     redis_available = False
+
 
 class CacheService:
     def __init__(self):
@@ -17,11 +19,15 @@ class CacheService:
 
         if redis_available and settings.CACHE_TYPE == "redis":
             try:
-                self.redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+                self.redis_client = redis.from_url(
+                    settings.REDIS_URL, decode_responses=True
+                )
                 self.redis_client.ping()
                 logger.info("Successfully connected to Redis cache layer.")
             except Exception as e:
-                logger.warning(f"Failed to connect to Redis, falling back to In-Memory cache: {e}")
+                logger.warning(
+                    f"Failed to connect to Redis, falling back to In-Memory cache: {e}"
+                )
                 self.redis_client = None
         else:
             logger.info("Initializing In-Memory Cache service.")
@@ -67,6 +73,25 @@ class CacheService:
         if key in self._in_memory_cache:
             del self._in_memory_cache[key]
 
+    def delete_pattern(self, pattern: str):
+        """
+        Removes all keys matching a pattern.
+        """
+        if self.redis_client:
+            try:
+                keys = self.redis_client.keys(pattern)
+                if keys:
+                    self.redis_client.delete(*keys)
+                return
+            except Exception as e:
+                logger.error(f"Redis delete_pattern failed for {pattern}: {e}")
+
+        import fnmatch
+
+        keys_to_del = [k for k in self._in_memory_cache if fnmatch.fnmatch(k, pattern)]
+        for k in keys_to_del:
+            del self._in_memory_cache[k]
+
     def clear(self):
         """
         Clears all items in the cache.
@@ -79,5 +104,6 @@ class CacheService:
                 logger.error(f"Redis flush failed: {e}")
 
         self._in_memory_cache.clear()
+
 
 cache_service = CacheService()

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import NotificationBell from "./NotificationBell";
 import { 
   LayoutDashboard, Search, Library, LogOut, Shield, 
   Sparkles, ChevronLeft, ChevronRight, User, Settings2, Camera
@@ -67,17 +68,21 @@ const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
           isCollapsed ? "w-20 px-3 py-6" : "w-64 p-6"
         }`}
       >
-        {/* Brand Header */}
-        <div className={`flex items-center gap-3 mb-8 group ${isCollapsed ? "justify-center" : "px-2"}`}>
-          <div className="w-9 h-9 rounded-xl bg-white/3 border border-white/10 flex items-center justify-center shadow-lg group-hover:border-emerald-500/20 transition-all duration-300">
-            <LogoSVG />
+        {/* Brand Header & Notification Center */}
+        <div className={`flex items-center justify-between mb-8 group ${isCollapsed ? "flex-col gap-3" : "px-2"}`}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/3 border border-white/10 flex items-center justify-center shadow-lg group-hover:border-emerald-500/20 transition-all duration-300">
+              <LogoSVG />
+            </div>
+            {!isCollapsed && (
+              <span className="font-extrabold text-lg tracking-wider bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent heading-font">
+                AETHERIA
+              </span>
+            )}
           </div>
-          {!isCollapsed && (
-            <span className="font-extrabold text-lg tracking-wider bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent heading-font">
-              AETHERIA
-            </span>
-          )}
+          <NotificationBell />
         </div>
+
 
         {/* Collapsible toggle button */}
         <button
@@ -170,13 +175,18 @@ const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
             AETHERIA
           </span>
         </div>
-        <button
-          onClick={handleLogout}
-          className="p-2 hover:bg-white/5 text-rose-400 rounded-lg transition"
-        >
-          <LogOut className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-3">
+          <NotificationBell />
+          <button
+            onClick={handleLogout}
+            className="p-2 hover:bg-white/5 text-rose-400 rounded-lg transition"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </header>
+
 
       {/* Main Workspace Frame */}
       <main className="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full overflow-y-auto pb-24 md:pb-10 relative z-10">

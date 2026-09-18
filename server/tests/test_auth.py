@@ -14,9 +14,10 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 @pytest.fixture(name="setup_db")
 def setup_db_fixture():
@@ -25,6 +26,7 @@ def setup_db_fixture():
     yield
     # Drop tables after each test
     Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture(name="client")
 def client_fixture(setup_db):
@@ -40,14 +42,15 @@ def client_fixture(setup_db):
     yield TestClient(app)
     app.dependency_overrides.clear()
 
+
 def test_register_user(client):
     response = client.post(
         f"{settings.API_V1_STR}/auth/register",
         json={
             "email": "test@user.com",
             "password": "testpassword123",
-            "full_name": "Test User"
-        }
+            "full_name": "Test User",
+        },
     )
     assert response.status_code == 201
     data = response.json()
@@ -56,6 +59,7 @@ def test_register_user(client):
     assert "id" in data
     assert data["role"] == "user"
 
+
 def test_login_user(client):
     # Register first
     client.post(
@@ -63,23 +67,21 @@ def test_login_user(client):
         json={
             "email": "test@user.com",
             "password": "testpassword123",
-            "full_name": "Test User"
-        }
+            "full_name": "Test User",
+        },
     )
 
     # Login
     response = client.post(
         f"{settings.API_V1_STR}/auth/login",
-        json={
-            "email": "test@user.com",
-            "password": "testpassword123"
-        }
+        json={"email": "test@user.com", "password": "testpassword123"},
     )
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
     assert "refresh_token" in data
     assert data["token_type"] == "bearer"
+
 
 def test_get_current_user_profile(client):
     # Register and login
@@ -88,15 +90,12 @@ def test_get_current_user_profile(client):
         json={
             "email": "test@user.com",
             "password": "testpassword123",
-            "full_name": "Test User"
-        }
+            "full_name": "Test User",
+        },
     )
     login_resp = client.post(
         f"{settings.API_V1_STR}/auth/login",
-        json={
-            "email": "test@user.com",
-            "password": "testpassword123"
-        }
+        json={"email": "test@user.com", "password": "testpassword123"},
     )
     access_token = login_resp.json()["access_token"]
 

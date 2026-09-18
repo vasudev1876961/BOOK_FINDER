@@ -35,12 +35,17 @@ class BookComparisonService:
         )
 
         try:
-            logger.info(f"Generating comparison between '{book_a.title}' and '{book_b.title}'")
+            logger.info(
+                f"Generating comparison between '{book_a.title}' and '{book_b.title}'"
+            )
             comparison = llm_provider.generate_text(prompt, system_prompt)
             return comparison
         except Exception as e:
-            logger.error(f"Failed to compare books '{book_a.title}' and '{book_b.title}': {e}")
+            logger.error(
+                f"Failed to compare books '{book_a.title}' and '{book_b.title}': {e}"
+            )
             return "Failed to generate AI comparison. Please check LLM provider logs."
+
 
 # Singleton instance
 book_comparison_service = BookComparisonService()

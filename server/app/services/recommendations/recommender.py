@@ -10,7 +10,9 @@ from app.services.ai.embedding_service import embedding_service
 
 
 class RecommendationService:
-    def get_popularity_recommendations(self, db: Session, limit: int = 10) -> list[Book]:
+    def get_popularity_recommendations(
+        self, db: Session, limit: int = 10
+    ) -> list[Book]:
         """
         Cold start / Popularity recommender.
         Returns books sorted by rating and favorited count.
@@ -26,15 +28,16 @@ class RecommendationService:
             db.query(Book)
             .outerjoin(fav_counts, Book.id == fav_counts.c.book_id)
             .order_by(
-                Book.rating.desc(),
-                func.coalesce(fav_counts.c.fav_count, 0).desc()
+                Book.rating.desc(), func.coalesce(fav_counts.c.fav_count, 0).desc()
             )
             .limit(limit)
             .all()
         )
         return books
 
-    def get_content_recommendations(self, db: Session, user_id: int, limit: int = 10) -> list[dict[str, Any]]:
+    def get_content_recommendations(
+        self, db: Session, user_id: int, limit: int = 10
+    ) -> list[dict[str, Any]]:
         """
         Content-based recommender using cosine similarity of book embeddings.
         Takes the user's highly-rated/completed/favorited books, generates profile vectors,
@@ -42,10 +45,14 @@ class RecommendationService:
         """
         # 1. Fetch user's active books (favorites + completed/reading shelf)
         favs = db.query(Favorite.book_id).filter(Favorite.user_id == user_id).all()
-        lists = db.query(ReadingList.book_id).filter(
-            ReadingList.user_id == user_id,
-            ReadingList.status.in_(["reading", "completed"])
-        ).all()
+        lists = (
+            db.query(ReadingList.book_id)
+            .filter(
+                ReadingList.user_id == user_id,
+                ReadingList.status.in_(["reading", "completed"]),
+            )
+            .all()
+        )
 
         user_book_ids = {f[0] for f in favs}.union({item[0] for item in lists})
         if not user_book_ids:
@@ -108,24 +115,31 @@ class RecommendationService:
             else:
                 explanation = "Similar content from your shelf"
 
-            recommendations.append({
-                "book": book,
-                "score": similarity,
-                "recommender_type": "content",
-                "explanation": explanation
-            })
+            recommendations.append(
+                {
+                    "book": book,
+                    "score": similarity,
+                    "recommender_type": "content",
+                    "explanation": explanation,
+                }
+            )
 
         # Sort descending
         recommendations.sort(key=lambda x: x["score"], reverse=True)
         return recommendations[:limit]
 
-    def get_collaborative_recommendations(self, db: Session, user_id: int, limit: int = 10) -> list[dict[str, Any]]:
+    def get_collaborative_recommendations(
+        self, db: Session, user_id: int, limit: int = 10
+    ) -> list[dict[str, Any]]:
         """
         Collaborative filtering: Finds users with similar favorite books,
         and recommends books they liked that the target user hasn't read.
         """
         # Target user's favorites
-        target_favs = {f.book_id for f in db.query(Favorite).filter(Favorite.user_id == user_id).all()}
+        target_favs = {
+            f.book_id
+            for f in db.query(Favorite).filter(Favorite.user_id == user_id).all()
+        }
         if not target_favs:
             return []
 
@@ -135,7 +149,10 @@ class RecommendationService:
 
         # Compute overlap with other users (Jaccard similarity)
         for user in other_users:
-            u_favs = {f.book_id for f in db.query(Favorite).filter(Favorite.user_id == user.id).all()}
+            u_favs = {
+                f.book_id
+                for f in db.query(Favorite).filter(Favorite.user_id == user.id).all()
+            }
             if not u_favs:
                 continue
 
@@ -154,7 +171,9 @@ class RecommendationService:
 
         # Aggregate recommendations from similar users
         book_scores = {}
-        for _, similarity, u_favs in user_similarities[:5]:  # Look at top 5 similar users
+        for _, similarity, u_favs in user_similarities[
+            :5
+        ]:  # Look at top 5 similar users
             unseen_favs = u_favs.difference(target_favs)
             for book_id in unseen_favs:
                 # Score is weighted by user similarity
@@ -167,43 +186,55 @@ class RecommendationService:
         recommended_books = db.query(Book).filter(Book.id.in_(book_scores.keys())).all()
         recommendations = []
         for book in recommended_books:
-            recommendations.append({
-                "book": book,
-                "score": book_scores[book.id],
-                "recommender_type": "collaborative",
-                "explanation": "Recommended based on similar reader preferences"
-            })
+            recommendations.append(
+                {
+                    "book": book,
+                    "score": book_scores[book.id],
+                    "recommender_type": "collaborative",
+                    "explanation": "Recommended based on similar reader preferences",
+                }
+            )
 
         # Sort descending
         recommendations.sort(key=lambda x: x["score"], reverse=True)
         return recommendations[:limit]
 
-    def get_hybrid_recommendations(self, db: Session, user_id: int, limit: int = 10) -> list[dict[str, Any]]:
+    def get_hybrid_recommendations(
+        self, db: Session, user_id: int, limit: int = 10
+    ) -> list[dict[str, Any]]:
         """
         Combines Content-based, Collaborative filtering, and Popularity recommendations.
         Checks for cold start, applies weight parameters, and merges results.
         """
         # 1. Check if user is new / has no history (Cold Start)
         user_fav_count = db.query(Favorite).filter(Favorite.user_id == user_id).count()
-        user_shelf_count = db.query(ReadingList).filter(ReadingList.user_id == user_id).count()
+        user_shelf_count = (
+            db.query(ReadingList).filter(ReadingList.user_id == user_id).count()
+        )
 
         if user_fav_count == 0 and user_shelf_count == 0:
-            logger.info(f"Cold start detected for user {user_id}. Serving popularity recommendations.")
+            logger.info(
+                f"Cold start detected for user {user_id}. Serving popularity recommendations."
+            )
             pop_books = self.get_popularity_recommendations(db, limit)
             results = []
             for book in pop_books:
-                results.append({
-                    "book": book,
-                    "score": 0.8,
-                    "recommender_type": "popularity",
-                    "explanation": "Trending choice in the Aetheria catalog"
-                })
+                results.append(
+                    {
+                        "book": book,
+                        "score": 0.8,
+                        "recommender_type": "popularity",
+                        "explanation": "Trending choice in the Aetheria catalog",
+                    }
+                )
             return results
 
         # 2. Fetch recommendations from pipelines
-        content_hits = self.get_content_recommendations(db, user_id, limit=limit*2)
-        collab_hits = self.get_collaborative_recommendations(db, user_id, limit=limit*2)
-        pop_books = self.get_popularity_recommendations(db, limit=limit*2)
+        content_hits = self.get_content_recommendations(db, user_id, limit=limit * 2)
+        collab_hits = self.get_collaborative_recommendations(
+            db, user_id, limit=limit * 2
+        )
+        pop_books = self.get_popularity_recommendations(db, limit=limit * 2)
 
         # 3. Normalize scores and compile candidates
         candidates = {}
@@ -218,7 +249,7 @@ class RecommendationService:
                 "book": hit["book"],
                 "score": 0.6 * hit["score"],
                 "recommender_type": "content",
-                "explanation": hit.get("explanation", "Matches your reading interests")
+                "explanation": hit.get("explanation", "Matches your reading interests"),
             }
 
         # Add Collaborative Candidates (Weight: 0.3)
@@ -234,7 +265,9 @@ class RecommendationService:
                     "book": hit["book"],
                     "score": 0.3 * norm_score,
                     "recommender_type": "collaborative",
-                    "explanation": hit.get("explanation", "Recommended based on similar reader preferences")
+                    "explanation": hit.get(
+                        "explanation", "Recommended based on similar reader preferences"
+                    ),
                 }
 
         # Add Popularity fallbacks (Weight: 0.1)
@@ -248,7 +281,7 @@ class RecommendationService:
                     "book": book,
                     "score": 0.1 * pop_score,
                     "recommender_type": "popularity",
-                    "explanation": "Trending choice in the Aetheria catalog"
+                    "explanation": "Trending choice in the Aetheria catalog",
                 }
 
         # 4. Sort and return

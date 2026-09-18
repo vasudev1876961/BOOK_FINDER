@@ -38,10 +38,8 @@ class Settings(BaseSettings):
     CACHE_TYPE: Literal["redis", "in_memory"] = "in_memory"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=True,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
     )
+
 
 settings = Settings()

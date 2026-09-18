@@ -17,7 +17,7 @@ async def parse_cover(
     bottom: int | None = Form(None),
     rotate_angle: int | None = Form(None),
     binarize: bool = Form(False),
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
 ):
     """
     Upload a cover image to parse title and author text from it.
@@ -26,7 +26,12 @@ async def parse_cover(
     content = await file.read()
     crop_box = (
         [left, top, right, bottom]
-        if (left is not None and top is not None and right is not None and bottom is not None)
+        if (
+            left is not None
+            and top is not None
+            and right is not None
+            and bottom is not None
+        )
         else None
     )
 
@@ -35,15 +40,14 @@ async def parse_cover(
         file_content=content,
         crop_box=crop_box,
         rotate_angle=rotate_angle,
-        binarize=binarize
+        binarize=binarize,
     )
     return result
 
 
 @router.post("/scan-barcode")
 async def scan_barcode(
-    file: UploadFile = File(...),
-    current_user: UserResponse = Depends(get_current_user)
+    file: UploadFile = File(...), current_user: UserResponse = Depends(get_current_user)
 ):
     """
     Upload a barcode image to decode its ISBN and auto-fetch metadata from Open Library.
@@ -58,11 +62,11 @@ async def scan_barcode(
         return {
             "isbn": isbn,
             "message": "Barcode decoded successfully, but no details found in Open Library database.",
-            "details": None
+            "details": None,
         }
 
     return {
         "isbn": isbn,
         "message": "Barcode decoded and metadata resolved successfully.",
-        "details": details
+        "details": details,
     }

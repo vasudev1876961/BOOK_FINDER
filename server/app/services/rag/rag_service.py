@@ -9,7 +9,9 @@ from app.services.rag.vector_store import vector_store
 
 
 class RagService:
-    def chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 100) -> list[str]:
+    def chunk_text(
+        self, text: str, chunk_size: int = 500, overlap: int = 100
+    ) -> list[str]:
         """
         Splits text recursively using paragraphs, sentences, and words to respect semantic boundaries.
         """
@@ -18,12 +20,17 @@ class RagService:
 
         separators = ["\n\n", "\n", " ", ""]
 
-        def split_recursive(text_to_split: str, separators_list: list[str]) -> list[str]:
+        def split_recursive(
+            text_to_split: str, separators_list: list[str]
+        ) -> list[str]:
             if len(text_to_split) <= chunk_size:
                 return [text_to_split]
 
             if not separators_list:
-                return [text_to_split[i:i+chunk_size] for i in range(0, len(text_to_split), chunk_size)]
+                return [
+                    text_to_split[i : i + chunk_size]
+                    for i in range(0, len(text_to_split), chunk_size)
+                ]
 
             sep = separators_list[0]
             next_seps = separators_list[1:]
@@ -79,13 +86,14 @@ class RagService:
 
         return chunks
 
-
     def index_book(self, db: Session, book: Book):
         """
         Chunks and indexes a book's description into the vector store.
         """
         if not book.description:
-            logger.info(f"Skipping indexing for book '{book.title}' due to empty description.")
+            logger.info(
+                f"Skipping indexing for book '{book.title}' due to empty description."
+            )
             return
 
         logger.info(f"Indexing book: '{book.title}' (ID: {book.id})...")
@@ -103,14 +111,14 @@ class RagService:
 
         # 4. Prepare batch datasets for Vector Store
         vector_ids = [f"book_{book.id}_chunk_{i}" for i in range(len(chunks))]
-        metadatas = [{"book_id": book.id, "chunk_index": i, "title": book.title} for i in range(len(chunks))]
+        metadatas = [
+            {"book_id": book.id, "chunk_index": i, "title": book.title}
+            for i in range(len(chunks))
+        ]
 
         # Save to Vector Store
         vector_store.add_chunks(
-            ids=vector_ids,
-            vectors=embeddings,
-            texts=chunks,
-            metadatas=metadatas
+            ids=vector_ids, vectors=embeddings, texts=chunks, metadatas=metadatas
         )
 
         # 5. Save metadata link to local SQLite DB
@@ -119,12 +127,14 @@ class RagService:
                 book_id=book.id,
                 chunk_index=idx,
                 chunk_text=chunk,
-                vector_id=vector_ids[idx]
+                vector_id=vector_ids[idx],
             )
             db.add(db_emb)
 
         db.commit()
-        logger.info(f"Successfully indexed '{book.title}' into Vector Store with {len(chunks)} chunks.")
+        logger.info(
+            f"Successfully indexed '{book.title}' into Vector Store with {len(chunks)} chunks."
+        )
 
     def clear_book_index(self, db: Session, book_id: int):
         """
@@ -146,7 +156,9 @@ class RagService:
 
         # 2. Query vector database restricted to this book
         filter_meta = {"book_id": book.id}
-        chunk_hits = vector_store.query(query_vector, top_n=3, filter_metadata=filter_meta)
+        chunk_hits = vector_store.query(
+            query_vector, top_n=3, filter_metadata=filter_meta
+        )
 
         if not chunk_hits:
             # Fall back to book description directly if no chunks found
@@ -186,7 +198,12 @@ class RagService:
 
         if not chunk_hits:
             books = db.query(Book).limit(3).all()
-            context = "\n\n---\n\n".join([f"Book: '{b.title}' - {b.description or 'No description'}" for b in books])
+            context = "\n\n---\n\n".join(
+                [
+                    f"Book: '{b.title}' - {b.description or 'No description'}"
+                    for b in books
+                ]
+            )
         else:
             passages = []
             for hit in chunk_hits:
@@ -213,6 +230,7 @@ class RagService:
         except Exception as e:
             logger.error(f"Failed to perform global library RAG chat: {e}")
             return "Failed to get AI response. Please check LLM provider logs."
+
 
 # Singleton instance
 rag_service = RagService()

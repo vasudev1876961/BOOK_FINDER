@@ -1,4 +1,3 @@
-
 from app.core.logging import logger
 from app.database.models import Review
 from app.services.ai.llm_provider import llm_provider
@@ -18,7 +17,9 @@ class ReviewSentimentService:
         # Concatenate reviews text
         review_blocks = []
         for idx, r in enumerate(reviews):
-            review_blocks.append(f"Review #{idx+1} (Rating: {r.rating}/5 stars):\n{r.review_text}")
+            review_blocks.append(
+                f"Review #{idx + 1} (Rating: {r.rating}/5 stars):\n{r.review_text}"
+            )
 
         all_reviews_text = "\n\n---\n\n".join(review_blocks)
 
@@ -42,12 +43,17 @@ class ReviewSentimentService:
         )
 
         try:
-            logger.info(f"Synthesizing sentiment for {len(reviews)} reviews of '{book_title}'")
+            logger.info(
+                f"Synthesizing sentiment for {len(reviews)} reviews of '{book_title}'"
+            )
             consensus = llm_provider.generate_text(prompt, system_prompt)
             return consensus
         except Exception as e:
-            logger.error(f"Failed to synthesize review sentiment for '{book_title}': {e}")
+            logger.error(
+                f"Failed to synthesize review sentiment for '{book_title}': {e}"
+            )
             return "Failed to analyze review sentiment. Please check LLM provider logs."
+
 
 # Singleton instance
 review_sentiment_service = ReviewSentimentService()

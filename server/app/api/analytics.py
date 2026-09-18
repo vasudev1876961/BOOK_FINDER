@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, status
@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.auth_service import get_current_user
 from app.database.database import get_db
-from app.database.models import ReadingList, Review, User
+from app.database.models import Notification, ReadingList, Review, User
 from app.schemas.analytics import (
     GenreCount,
     LogPagesRequest,
@@ -22,19 +22,29 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 @router.get("/", response_model=UserAnalyticsResponse)
 def get_user_reading_analytics(
-    db: Session = Depends(get_db),
-    current_user: Any = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: Any = Depends(get_current_user)
 ):
     # 1. Total books completed
     completed_shelves = (
         db.query(ReadingList)
-        .filter(ReadingList.user_id == current_user.id, ReadingList.status == "completed")
+        .filter(
+            ReadingList.user_id == current_user.id, ReadingList.status == "completed"
+        )
         .all()
     )
     total_books = len(completed_shelves)
 
     # 2. Total pages read
-    total_pages = sum([shelf.book.pages for shelf in completed_shelves if shelf.book and shelf.book.pages]) or 0
+    total_pages = (
+        sum(
+            [
+                shelf.book.pages
+                for shelf in completed_shelves
+                if shelf.book and shelf.book.pages
+            ]
+        )
+        or 0
+    )
 
     # 3. Average rating given by user
     avg_rating_row = (
@@ -42,7 +52,11 @@ def get_user_reading_analytics(
         .filter(Review.user_id == current_user.id)
         .first()
     )
-    average_rating = float(round(avg_rating_row[0], 2)) if avg_rating_row and avg_rating_row[0] else 0.0
+    average_rating = (
+        float(round(avg_rating_row[0], 2))
+        if avg_rating_row and avg_rating_row[0]
+        else 0.0
+    )
 
     # 4. Genre distribution
     genre_counts: dict[str, int] = {}
@@ -53,12 +67,14 @@ def get_user_reading_analytics(
 
     genre_distribution = [
         GenreCount(genre=name, count=count)
-        for name, count in sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)
+        for name, count in sorted(
+            genre_counts.items(), key=lambda x: x[1], reverse=True
+        )
     ]
 
     # 5. Monthly reading activity (over past 6 months)
     months_labels = []
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     for i in range(5, -1, -1):
         past_date = now - timedelta(days=i * 30)
         months_labels.append(past_date.strftime("%b"))
@@ -71,8 +87,7 @@ def get_user_reading_analytics(
                 monthly_counts[month_name] += 1
 
     monthly_activity = [
-        MonthlyReadCount(month=m, count=count)
-        for m, count in monthly_counts.items()
+        MonthlyReadCount(month=m, count=count) for m, count in monthly_counts.items()
     ]
 
     # 6. Reading streak logic
@@ -90,7 +105,7 @@ def get_user_reading_analytics(
         longest_streak = 1
 
         for i in range(1, len(completion_dates)):
-            diff = completion_dates[i] - completion_dates[i-1]
+            diff = completion_dates[i] - completion_dates[i - 1]
             if diff.days == 1:
                 temp_streak += 1
             elif diff.days > 1:
@@ -99,13 +114,16 @@ def get_user_reading_analytics(
 
         longest_streak = max(longest_streak, temp_streak)
 
-        today = datetime.utcnow().date()
+        today = datetime.now(UTC).date()
         yesterday = today - timedelta(days=1)
 
         if completion_dates[-1] in (today, yesterday):
             current_streak = 1
             idx = len(completion_dates) - 1
-            while idx > 0 and (completion_dates[idx] - completion_dates[idx-1]).days == 1:
+            while (
+                idx > 0
+                and (completion_dates[idx] - completion_dates[idx - 1]).days == 1
+            ):
                 current_streak += 1
                 idx -= 1
         else:
@@ -114,12 +132,12 @@ def get_user_reading_analytics(
     streak_response = StreakResponse(
         current_streak=current_streak,
         longest_streak=longest_streak,
-        last_activity_date=last_active
+        last_activity_date=last_active,
     )
 
     # 7. Goals and Progress calculations
     user = db.query(User).filter(User.id == current_user.id).first()
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
     # Reset pages read today if date changed
     if user.last_page_read_date != today_str:
@@ -127,15 +145,23 @@ def get_user_reading_analytics(
         user.last_page_read_date = today_str
         db.commit()
 
-    monthly_books_progress = len([
-        shelf for shelf in completed_shelves
-        if shelf.completed_at and shelf.completed_at.year == now.year and shelf.completed_at.month == now.month
-    ])
+    monthly_books_progress = len(
+        [
+            shelf
+            for shelf in completed_shelves
+            if shelf.completed_at
+            and shelf.completed_at.year == now.year
+            and shelf.completed_at.month == now.month
+        ]
+    )
 
-    yearly_books_progress = len([
-        shelf for shelf in completed_shelves
-        if shelf.completed_at and shelf.completed_at.year == now.year
-    ])
+    yearly_books_progress = len(
+        [
+            shelf
+            for shelf in completed_shelves
+            if shelf.completed_at and shelf.completed_at.year == now.year
+        ]
+    )
 
     return UserAnalyticsResponse(
         total_books_read=total_books,
@@ -150,7 +176,7 @@ def get_user_reading_analytics(
         yearly_books_goal=user.yearly_books_goal,
         daily_pages_progress=user.daily_pages_read,
         monthly_books_progress=monthly_books_progress,
-        yearly_books_progress=yearly_books_progress
+        yearly_books_progress=yearly_books_progress,
     )
 
 
@@ -158,7 +184,7 @@ def get_user_reading_analytics(
 def update_reading_goals(
     request: UpdateGoalsRequest,
     db: Session = Depends(get_db),
-    current_user: Any = Depends(get_current_user)
+    current_user: Any = Depends(get_current_user),
 ):
     """
     Update reading goals and speed parameters.
@@ -181,24 +207,39 @@ def update_reading_goals(
 def log_pages_read(
     request: LogPagesRequest,
     db: Session = Depends(get_db),
-    current_user: Any = Depends(get_current_user)
+    current_user: Any = Depends(get_current_user),
 ):
     """
     Log pages read today, incrementing the daily pages read counter.
     """
     user = db.query(User).filter(User.id == current_user.id).first()
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
     # Date reset check
     if user.last_page_read_date != today_str:
         user.daily_pages_read = 0
         user.last_page_read_date = today_str
 
+    previous_read = user.daily_pages_read
     user.daily_pages_read += request.pages
+
+    # Check for daily goal milestone
+    if (
+        previous_read < user.daily_pages_goal
+        and user.daily_pages_read >= user.daily_pages_goal
+    ):
+        milestone_notif = Notification(
+            user_id=user.id,
+            title="🎯 Daily Reading Goal Reached!",
+            message=f"Outstanding work! You just completed your daily target of {user.daily_pages_goal} pages (total: {user.daily_pages_read} pages read today).",
+            is_read=False,
+        )
+        db.add(milestone_notif)
+
     db.commit()
 
     return {
         "message": "Pages logged successfully.",
         "daily_pages_read": user.daily_pages_read,
-        "daily_pages_goal": user.daily_pages_goal
+        "daily_pages_goal": user.daily_pages_goal,
     }
