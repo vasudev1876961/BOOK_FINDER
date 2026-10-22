@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -22,7 +22,7 @@ def log_search_query(db_session_factory, user_id: int | None, query: str):
     db = db_session_factory()
     try:
         log_item = SearchHistory(
-            user_id=user_id, query=query, timestamp=datetime.utcnow()
+            user_id=user_id, query=query, timestamp=datetime.now(UTC)
         )
         db.add(log_item)
         db.commit()
@@ -150,7 +150,7 @@ def get_trending(db: Session = Depends(get_db)):
     """
     Retrieve trending search queries compiled from all searches in the last 24 hours.
     """
-    cutoff = datetime.utcnow() - timedelta(hours=24)
+    cutoff = datetime.now(UTC) - timedelta(hours=24)
     trending = (
         db.query(SearchHistory.query, func.count(SearchHistory.query).label("cnt"))
         .filter(SearchHistory.timestamp >= cutoff)

@@ -29,6 +29,54 @@ class SearchPipeline:
             "ai": ["artificial", "intelligence", "rag", "assistant"],
             "vector": ["embeddings", "semantic", "similarity"],
         }
+        self._cached_corpus: dict[int, list[str]] | None = None
+        self._cached_doc_lengths: dict[int, int] | None = None
+        self._cached_avg_doc_len: float = 0.0
+        self._cached_book_count: int = 0
+
+    def invalidate_corpus_cache(self):
+        """Invalidates the pre-tokenized corpus cache used for BM25 keyword search."""
+        self._cached_corpus = None
+        self._cached_doc_lengths = None
+        self._cached_avg_doc_len = 0.0
+        self._cached_book_count = 0
+
+    def _build_corpus_cache(self, db: Session):
+        """Builds tokenized document corpus for fast BM25 retrieval without redundant DB queries."""
+        books = db.query(Book).all()
+        if not books:
+            self._cached_corpus = {}
+            self._cached_doc_lengths = {}
+            self._cached_avg_doc_len = 0.0
+            self._cached_book_count = 0
+            return
+
+        corpus: dict[int, list[str]] = {}
+        doc_lengths: dict[int, int] = {}
+
+        for book in books:
+            title_tokens = self._tokenize(book.title)
+            author_tokens = self._tokenize(book.author.name) if book.author else []
+            genre_tokens = []
+            for g in book.genres:
+                genre_tokens.extend(self._tokenize(g.name))
+            desc_tokens = self._tokenize(book.description) if book.description else []
+
+            tokens = (
+                (title_tokens * 4)
+                + (author_tokens * 2)
+                + (genre_tokens * 2)
+                + desc_tokens
+            )
+            corpus[book.id] = tokens
+            doc_lengths[book.id] = len(tokens)
+
+        self._cached_corpus = corpus
+        self._cached_doc_lengths = doc_lengths
+        self._cached_avg_doc_len = (
+            sum(doc_lengths.values()) / max(len(doc_lengths), 1)
+        )
+        self._cached_book_count = len(books)
 
     def normalize_query(self, query: str) -> str:
         if not query:
@@ -48,6 +96,7 @@ class SearchPipeline:
         """
         Builds a vocabulary of valid terms from books, authors, and genres to use for spell-checking.
         """
+        self.invalidate_corpus_cache()
         try:
             vocab = set()
             # Get all book titles, author names, and genres
@@ -133,40 +182,20 @@ class SearchPipeline:
                 expanded_tokens.extend(self.synonyms[token])
         query_tokens = list(set(expanded_tokens))
 
-        # Fetch all books with joined author/genres for content scoring
-        books = db.query(Book).all()
-        if not books:
+        if self._cached_corpus is None:
+            self._build_corpus_cache(db)
+
+        corpus = self._cached_corpus
+        doc_lengths = self._cached_doc_lengths
+        avg_doc_len = self._cached_avg_doc_len
+        N = self._cached_book_count
+
+        if not corpus or N == 0 or avg_doc_len == 0:
             return {}
 
         # Parameters for BM25
         k1 = 1.5
         b = 0.75
-
-        # 1. Document representation (Tokenization of books)
-        # We index: Title (weight 4.0), Author (weight 2.0), Genres (weight 2.0), Description (weight 1.0)
-        corpus: dict[int, list[str]] = {}
-        doc_lengths: dict[int, int] = {}
-
-        for book in books:
-            title_tokens = self._tokenize(book.title)
-            author_tokens = self._tokenize(book.author.name) if book.author else []
-            genre_tokens = []
-            for g in book.genres:
-                genre_tokens.extend(self._tokenize(g.name))
-            desc_tokens = self._tokenize(book.description) if book.description else []
-
-            # Weighted virtual document
-            tokens = (
-                (title_tokens * 4)
-                + (author_tokens * 2)
-                + (genre_tokens * 2)
-                + desc_tokens
-            )
-            corpus[book.id] = tokens
-            doc_lengths[book.id] = len(tokens)
-
-        # Average document length
-        avg_doc_len = sum(doc_lengths.values()) / len(doc_lengths)
 
         # 2. Document frequency (DF) of query terms in the corpus
         doc_frequency: dict[str, int] = {}
@@ -179,7 +208,6 @@ class SearchPipeline:
 
         # 3. Calculate IDF for each query term
         # IDF = log(1 + (N - DF + 0.5) / (DF + 0.5))
-        N = len(books)
         idf: dict[str, float] = {}
         for term, df in doc_frequency.items():
             if df == 0:

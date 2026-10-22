@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Text
 from sqlalchemy.orm import relationship
@@ -18,7 +18,7 @@ class Review(Base):
     )
     rating = Column(Integer, nullable=False)  # 1 to 5 stars
     review_text = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     user = relationship("User", back_populates="reviews")

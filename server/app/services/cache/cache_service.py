@@ -1,4 +1,5 @@
 import json
+import time
 from typing import Any
 
 from app.core.config import settings
@@ -34,7 +35,7 @@ class CacheService:
 
     def get(self, key: str) -> Any | None:
         """
-        Retrieves a value from the cache.
+        Retrieves a value from the cache. Checks TTL expiration.
         """
         if self.redis_client:
             try:
@@ -44,7 +45,17 @@ class CacheService:
                 logger.error(f"Redis get failed for key {key}: {e}")
                 return None
 
-        return self._in_memory_cache.get(key)
+        if key in self._in_memory_cache:
+            entry = self._in_memory_cache[key]
+            if isinstance(entry, tuple) and len(entry) == 2:
+                val, exp = entry
+                if exp is not None and time.time() > exp:
+                    del self._in_memory_cache[key]
+                    return None
+                return val
+            return entry
+
+        return None
 
     def set(self, key: str, value: Any, expire_seconds: int = 3600):
         """
@@ -57,7 +68,15 @@ class CacheService:
             except Exception as e:
                 logger.error(f"Redis set failed for key {key}: {e}")
 
-        self._in_memory_cache[key] = value
+        # Evict oldest if cache exceeds 5000 items
+        if len(self._in_memory_cache) >= 5000:
+            now = time.time()
+            expired = [k for k, v in self._in_memory_cache.items() if isinstance(v, tuple) and v[1] and now > v[1]]
+            for k in expired:
+                del self._in_memory_cache[k]
+
+        exp_time = time.time() + expire_seconds if expire_seconds and expire_seconds > 0 else None
+        self._in_memory_cache[key] = (value, exp_time)
 
     def delete(self, key: str):
         """

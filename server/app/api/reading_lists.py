@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
@@ -54,7 +54,7 @@ def add_or_update_reading_shelf(
         .first()
     )
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     completed_time = now if shelf_in.status == "completed" else None
 
     if shelf:

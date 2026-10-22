@@ -163,7 +163,9 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
     from app.auth.security import jwt
     from app.core.config import settings
 
-    expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
+    expire = datetime.datetime.now(
+        datetime.UTC
+    ) + datetime.timedelta(minutes=15)
     to_encode = {"exp": expire, "sub": user.email, "type": "reset"}
     reset_token = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
@@ -209,7 +211,9 @@ def request_verification(current_user: User = Depends(get_current_user)):
     from app.auth.security import jwt
     from app.core.config import settings
 
-    expire = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+    expire = datetime.datetime.now(
+        datetime.UTC
+    ) + datetime.timedelta(days=1)
     to_encode = {"exp": expire, "sub": current_user.email, "type": "verify"}
     verify_token_str = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM

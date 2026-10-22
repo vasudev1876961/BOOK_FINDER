@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api import (
     analytics,
@@ -20,6 +21,9 @@ app = FastAPI(
     version="1.0.0",
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
 )
+
+# GZip Compression for payloads > 1000 bytes
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # CORS configuration
 if settings.BACKEND_CORS_ORIGINS:

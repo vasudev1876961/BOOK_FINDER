@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String
 from sqlalchemy.orm import relationship
@@ -15,7 +15,7 @@ class User(Base):
     full_name = Column(String, nullable=True)
     role = Column(String, default="user")  # 'user' or 'admin'
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Reading Goals & Progress
     daily_pages_goal = Column(Integer, default=30)

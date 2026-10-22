@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 
 # Ensure backend directory is in the path
 sys.path.append(
@@ -292,14 +292,14 @@ def seed_db():
                 book_id=book.id,
                 rating=5,
                 review_text=review_text_positive,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
             )
             review_2 = Review(
                 user_id=admin_user.id,
                 book_id=book.id,
                 rating=3,
                 review_text=review_text_critical,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
             )
             db.add_all([review_1, review_2])
 
@@ -308,19 +308,19 @@ def seed_db():
             user_id=demo_user.id,
             title="Welcome to Aetheria!",
             message="Welcome to Aetheria AI Book Discovery! Search, create reading lists, and ask our AI librarian anything about books.",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         notif_user_2 = Notification(
             user_id=demo_user.id,
             title="AI Recommendations Ready",
             message="We precomputed content recommendations based on your preferences. Check them out on your dashboard!",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         notif_admin = Notification(
             user_id=admin_user.id,
             title="System Alert",
             message="The search index database is successfully synced with the local SQLite storage.",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         db.add_all([notif_user_1, notif_user_2, notif_admin])
 

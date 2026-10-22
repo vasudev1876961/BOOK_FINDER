@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -14,7 +14,7 @@ class SearchHistory(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )  # Nullable for anonymous search
     query = Column(String, index=True, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     user = relationship("User", back_populates="search_histories")
