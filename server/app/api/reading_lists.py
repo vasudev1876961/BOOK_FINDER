@@ -1,6 +1,10 @@
+import csv
+import io
+import json
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.auth.auth_service import get_current_user
@@ -80,6 +84,67 @@ def add_or_update_reading_shelf(
     db.commit()
     db.refresh(shelf)
     return shelf
+
+
+@router.get("/export")
+def export_user_reading_list(
+    export_format: str = Query("csv", alias="format"),
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Depends(get_current_user),
+):
+    """
+    Export current user's reading list to CSV or JSON format.
+    """
+    shelves = (
+        db.query(ReadingList)
+        .filter(ReadingList.user_id == current_user.id)
+        .all()
+    )
+
+    if export_format.lower() == "json":
+        data = [
+            {
+                "title": s.book.title if s.book else "Unknown",
+                "author": s.book.author.name if s.book and s.book.author else "Unknown",
+                "status": s.status,
+                "rating": s.book.rating if s.book else None,
+                "pages": s.book.pages if s.book else None,
+                "isbn": s.book.isbn if s.book else None,
+                "genres": [g.name for g in s.book.genres] if s.book and s.book.genres else [],
+                "added_at": s.added_at.isoformat() if s.added_at else None,
+                "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+            }
+            for s in shelves
+        ]
+        json_str = json.dumps(data, indent=2)
+        return StreamingResponse(
+            io.BytesIO(json_str.encode("utf-8")),
+            media_type="application/json",
+            headers={"Content-Disposition": 'attachment; filename="aetheria_reading_list.json"'},
+        )
+    else:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Title", "Author", "Status", "Rating", "Pages", "ISBN", "Genres", "Added At", "Completed At"])
+        for s in shelves:
+            genres_str = ", ".join([g.name for g in s.book.genres]) if s.book and s.book.genres else ""
+            writer.writerow([
+                s.book.title if s.book else "",
+                s.book.author.name if s.book and s.book.author else "",
+                s.status,
+                s.book.rating if s.book else "",
+                s.book.pages if s.book else "",
+                s.book.isbn if s.book else "",
+                genres_str,
+                s.added_at.strftime("%Y-%m-%d %H:%M:%S") if s.added_at else "",
+                s.completed_at.strftime("%Y-%m-%d %H:%M:%S") if s.completed_at else "",
+            ])
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode("utf-8")),
+            media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="aetheria_reading_list.csv"'},
+        )
 
 
 @router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)

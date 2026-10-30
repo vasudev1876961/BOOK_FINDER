@@ -1,4 +1,4 @@
-const API_BASE_URL =
+export const API_BASE_URL =
   (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
 
 interface RequestOptions extends RequestInit {
@@ -18,11 +18,11 @@ class ApiClient {
     this.refreshSubscribers = [];
   }
 
-  private static getAccessToken(): string | null {
+  public static getAccessToken(): string | null {
     return localStorage.getItem("access_token");
   }
 
-  private static getRefreshToken(): string | null {
+  public static getRefreshToken(): string | null {
     return localStorage.getItem("refresh_token");
   }
 
@@ -60,28 +60,23 @@ class ApiClient {
       headers
     };
 
-    try {
-      const response = await fetch(url, config);
+    const response = await fetch(url, config);
 
-      // Handle successful responses
-      if (response.ok) {
-        if (response.status === 204) return null;
-        return await response.json();
-      }
-
-      // Handle token expiration (401 Unauthorized)
-      if (response.status === 401 && !options.skipAuth) {
-        return await this.handle401Error(endpoint, options);
-      }
-
-      // Handle other error responses
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.detail || `Request failed with status ${response.status}`;
-      throw new Error(errorMessage);
-      
-    } catch (error) {
-      throw error;
+    // Handle successful responses
+    if (response.ok) {
+      if (response.status === 204) return null;
+      return await response.json();
     }
+
+    // Handle token expiration (401 Unauthorized)
+    if (response.status === 401 && !options.skipAuth) {
+      return await this.handle401Error(endpoint, options);
+    }
+
+    // Handle other error responses
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.detail || `Request failed with status ${response.status}`;
+    throw new Error(errorMessage);
   }
 
   private static async handle401Error(endpoint: string, options: RequestOptions): Promise<any> {
@@ -170,10 +165,22 @@ class ApiClient {
   }
 
   public static delete(endpoint: string, options: RequestOptions = {}) {
-
     return this.request(endpoint, { ...options, method: "DELETE" });
+  }
+
+  public static async downloadBlob(endpoint: string): Promise<Blob> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const token = this.getAccessToken();
+    const headers = new Headers();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      throw new Error(`Download failed with status ${response.status}`);
+    }
+    return await response.blob();
   }
 }
 
 export default ApiClient;
-export { API_BASE_URL };

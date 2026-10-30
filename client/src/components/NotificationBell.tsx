@@ -22,7 +22,7 @@ export default function NotificationBell() {
       const data = await ApiClient.get("/notifications/");
       setNotifications(data.notifications || []);
       setUnreadCount(data.unread_count || 0);
-    } catch (e) {
+    } catch {
       // ignore
     }
   };

@@ -51,7 +51,7 @@ export default function LibrarianChat() {
       try {
         const books = await ApiClient.get("/recommendations/"); // fetches recommendation/top list as catalog preview
         setAllBooks(books);
-      } catch (e) {
+      } catch {
         // ignore
       }
     };

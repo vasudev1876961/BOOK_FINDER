@@ -17,6 +17,9 @@ dist-ssr/
 # Local databases & search indices
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
+*.pkl
 chroma_db/
 .chroma/
 

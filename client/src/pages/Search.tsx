@@ -72,7 +72,7 @@ export default function Search() {
       try {
         const list = await ApiClient.get(`/search/autocomplete?q=${encodeURIComponent(titleQuery)}`);
         setSuggestions(list);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }, 200);
@@ -89,13 +89,13 @@ export default function Search() {
       ]);
       setRecentSearches(history);
       setTrendingSearches(trending);
-    } catch (e) {
+    } catch {
       // Fallback to local storage if API fails
       const saved = localStorage.getItem("aetheria_recent_searches");
       if (saved) {
         try {
           setRecentSearches(JSON.parse(saved));
-        } catch (err) {
+        } catch {
           // ignore
         }
       }
@@ -172,8 +172,8 @@ export default function Search() {
 
   const handleReset = () => {
     setTitleQuery("");
-    authorQuery && setAuthorQuery("");
-    isbnQuery && setIsbnQuery("");
+    setAuthorQuery("");
+    setIsbnQuery("");
     setLanguage("Any");
     setSearchType("hybrid");
     setSelectedGenres([]);

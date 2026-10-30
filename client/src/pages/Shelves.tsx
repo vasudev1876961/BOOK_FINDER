@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import ApiClient from "../services/api";
 import { 
   Trash2, BookOpen, Library, Heart, Star, 
-  ChevronDown, CheckCircle2, Bookmark, Clock, Sparkles
+  ChevronDown, CheckCircle2, Bookmark, Clock, Sparkles,
+  Download, FileSpreadsheet, FileText
 } from "lucide-react";
 
 interface Book {
@@ -30,6 +31,28 @@ export default function Shelves() {
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<"all" | "reading" | "want_to_read" | "completed" | "favorites">("all");
   const [statusMenuOpenId, setStatusMenuOpenId] = useState<number | null>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState<boolean>(false);
+  const [exporting, setExporting] = useState<boolean>(false);
+
+  const handleExport = async (format: "csv" | "json") => {
+    setExportMenuOpen(false);
+    setExporting(true);
+    try {
+      const blob = await ApiClient.downloadBlob(`/reading-lists/export?format=${format}`);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `aetheria_reading_list.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Export error:", err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -186,13 +209,48 @@ export default function Shelves() {
           </p>
         </div>
 
-        <Link
-          to="/search"
-          className="self-start md:self-auto px-4 py-2.5 rounded-xl bg-primary text-black font-bold text-xs hover:bg-emerald-400 transition shadow-lg shadow-primary/20 flex items-center gap-1.5 cursor-pointer"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Discover More Books</span>
-        </Link>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          {/* Export Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setExportMenuOpen(!exportMenuOpen)}
+              disabled={exporting || shelves.length === 0}
+              className="px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-semibold text-xs border border-white/10 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Export reading list"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{exporting ? "Exporting..." : "Export"}</span>
+              <ChevronDown className="w-3 h-3 text-zinc-400" />
+            </button>
+
+            {exportMenuOpen && (
+              <div className="absolute right-0 mt-2 w-40 glass-card bg-[#09090b]/95 border border-white/10 rounded-xl shadow-2xl p-1.5 z-30 space-y-1">
+                <button
+                  onClick={() => handleExport("csv")}
+                  className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-white/5 rounded-lg transition flex items-center gap-2 cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Export as CSV</span>
+                </button>
+                <button
+                  onClick={() => handleExport("json")}
+                  className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-white/5 rounded-lg transition flex items-center gap-2 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Export as JSON</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <Link
+            to="/search"
+            className="px-4 py-2.5 rounded-xl bg-primary text-black font-bold text-xs hover:bg-emerald-400 transition shadow-lg shadow-primary/20 flex items-center gap-1.5 cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Discover More Books</span>
+          </Link>
+        </div>
       </div>
 
       {/* Tabs */}

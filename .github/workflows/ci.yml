@@ -26,6 +26,11 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-asyncio httpx
 
+      - name: Lint with Ruff
+        working-directory: ./server
+        run: |
+          ruff check .
+
       - name: Run Backend Tests
         working-directory: ./server
         run: |
@@ -47,6 +52,10 @@ jobs:
       - name: Install Dependencies
         working-directory: ./client
         run: npm ci
+
+      - name: Lint Frontend
+        working-directory: ./client
+        run: npm run lint
 
       - name: Run TypeScript & Vite Build
         working-directory: ./client

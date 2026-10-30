@@ -2,16 +2,18 @@ import os
 import sys
 from datetime import UTC, datetime
 
-# Ensure backend directory is in the path
-sys.path.append(
+# Ensure backend server directory is in the path
+SERVER_DIR = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
+if SERVER_DIR not in sys.path:
+    sys.path.insert(0, SERVER_DIR)
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session  # noqa: E402
 
-from app.auth.security import get_password_hash
-from app.database.database import Base, SessionLocal, engine
-from app.database.models import (
+from app.auth.security import get_password_hash  # noqa: E402
+from app.database.database import Base, SessionLocal, engine  # noqa: E402
+from app.database.models import (  # noqa: E402
     Author,
     Book,
     Genre,
@@ -203,6 +205,126 @@ BOOKS_DATA = [
         "rating": 4.3,
         "rating_count": 140,
     },
+    {
+        "title": "Project Hail Mary",
+        "author": "Andy Weir",
+        "author_bio": "Andy Weir is a former software engineer and the bestselling author of The Martian, Artemis, and Project Hail Mary.",
+        "publisher": "Ballantine Books",
+        "genres": ["Sci-Fi", "Fiction"],
+        "description": "Ryland Grace is the sole survivor on a desperate, last-chance mission—and if he fails, humanity and the earth itself are doomed. Except right now, he doesn't know that. He can't even remember his own name, let alone the nature of his assignment or how to complete it. An interstellar journey of discovery, speculative science, and friendship against impossible odds.",
+        "isbn": "9780593135204",
+        "pub_date": "2021-05-04",
+        "pages": 496,
+        "cover_url": "https://images-na.ssl-images-amazon.com/images/I/91r4U5VfHcL.jpg",
+        "language": "English",
+        "rating": 4.9,
+        "rating_count": 320,
+    },
+    {
+        "title": "Designing Data-Intensive Applications",
+        "author": "Martin Kleppmann",
+        "author_bio": "Martin Kleppmann is an Associate Professor of Computer Science at the University of Cambridge and researcher into distributed systems.",
+        "publisher": "O'Reilly Media",
+        "genres": ["Tech", "Education"],
+        "description": "Data is at the center of many challenges in system design today. Difficult issues need to be figured out, such as scalability, consistency, reliability, efficiency, and maintainability. In addition, we have an overwhelming variety of tools, including relational databases, NoSQL datastores, stream or batch processors, and message brokers. Martin Kleppmann guides you through the principles and trade-offs of modern data systems.",
+        "isbn": "9781449373320",
+        "pub_date": "2017-03-16",
+        "pages": 616,
+        "cover_url": "https://images-na.ssl-images-amazon.com/images/I/91e4i2vQduL.jpg",
+        "language": "English",
+        "rating": 4.8,
+        "rating_count": 240,
+    },
+    {
+        "title": "The Psychology of Money",
+        "author": "Morgan Housel",
+        "author_bio": "Morgan Housel is a partner at The Collaborative Fund and a former columnist at The Motley Fool and The Wall Street Journal.",
+        "publisher": "Harriman House",
+        "genres": ["Business", "Psychology", "Self-Help"],
+        "description": "Doing well with money isn't necessarily about what you know. It's about how you behave. And behavior is hard to teach, even to really smart people. Money—investing, personal finance, and business decisions—is typically taught as a math-based field, where data and formulas tell us exactly what to do. But in the real world, people make financial decisions driven by ego, pride, and personal history.",
+        "isbn": "9780857197689",
+        "pub_date": "2020-09-08",
+        "pages": 252,
+        "cover_url": "https://images-na.ssl-images-amazon.com/images/I/71g2ednj0JL.jpg",
+        "language": "English",
+        "rating": 4.7,
+        "rating_count": 195,
+    },
+    {
+        "title": "Klara and the Sun",
+        "author": "Kazuo Ishiguro",
+        "author_bio": "Kazuo Ishiguro is a Nobel Prize-winning British novelist, screenwriter, and short story writer.",
+        "publisher": "Knopf",
+        "genres": ["Sci-Fi", "Fiction"],
+        "description": "Klara and the Sun tells the story of Klara, an Artificial Friend with outstanding observational qualities, who, from her place in the store, watches carefully the behavior of those who come in to browse. She remains hopeful a customer will soon choose her, but when her circumstances change, she is warned not to invest too much in the promises of humans. A luminous exploration of love and the human heart.",
+        "isbn": "9780593318171",
+        "pub_date": "2021-03-02",
+        "pages": 320,
+        "cover_url": "https://images-na.ssl-images-amazon.com/images/I/71c1Lsl9UmL.jpg",
+        "language": "English",
+        "rating": 4.3,
+        "rating_count": 110,
+    },
+    {
+        "title": "Man's Search for Meaning",
+        "author": "Viktor E. Frankl",
+        "author_bio": "Viktor E. Frankl was an Austrian neurologist, psychiatrist, and Holocaust survivor who founded logotherapy.",
+        "publisher": "Beacon Press",
+        "genres": ["Psychology", "Biography"],
+        "description": "Psychiatrist Viktor Frankl's memoir has riveted generations of readers with its descriptions of life in Nazi concentration camps and its lessons for spiritual survival. Based on his own experience and the stories of his patients, Frankl argues that we cannot avoid suffering but we can choose how to cope with it, find meaning in it, and move forward with renewed purpose.",
+        "isbn": "9780807014295",
+        "pub_date": "1946-01-01",
+        "pages": 184,
+        "cover_url": "https://images-na.ssl-images-amazon.com/images/I/71p0WfL1J-L.jpg",
+        "language": "English",
+        "rating": 4.7,
+        "rating_count": 280,
+    },
+    {
+        "title": "Crime and Punishment",
+        "author": "Fyodor Dostoevsky",
+        "author_bio": "Fyodor Dostoevsky was a Russian novelist, short story writer, and essayist whose psychological works explore the human soul.",
+        "publisher": "The Russian Messenger",
+        "genres": ["Fiction", "Mystery"],
+        "description": "Raskolnikov, a destitute former student, wanders through the slums of Saint Petersburg and commits a murder without remorse, imagining himself beyond conventional moral law. But as he plays a dangerous cat-and-mouse game with a suspicious investigator, Raskolnikov finds the noose of his own guilt and conscience tightening in this masterwork of psychological fiction.",
+        "isbn": "9780140449136",
+        "pub_date": "1866-01-01",
+        "pages": 671,
+        "cover_url": "https://images-na.ssl-images-amazon.com/images/I/71O2XIytdqL.jpg",
+        "language": "English",
+        "rating": 4.5,
+        "rating_count": 175,
+    },
+    {
+        "title": "Neuromancer",
+        "author": "William Gibson",
+        "author_bio": "William Gibson is an American-Canadian speculative fiction writer widely credited with pioneering the cyberpunk subgenre.",
+        "publisher": "Ace",
+        "genres": ["Sci-Fi", "Tech", "Fiction"],
+        "description": "Case was the sharpest data-thief in the matrix—until he crossed the wrong people and they crippled his nervous system. Now a mysterious employer recruits him for a high-stakes run against an unthinkably powerful artificial intelligence. With street-samurai Molly, Case navigates a dark, dazzling cyberspace underworld.",
+        "isbn": "9780441569595",
+        "pub_date": "1984-07-01",
+        "pages": 271,
+        "cover_url": "https://images-na.ssl-images-amazon.com/images/I/81xU-m856pL.jpg",
+        "language": "English",
+        "rating": 4.4,
+        "rating_count": 160,
+    },
+    {
+        "title": "Gödel, Escher, Bach",
+        "author": "Douglas Hofstadter",
+        "author_bio": "Douglas Hofstadter is an American cognitive scientist whose research includes human consciousness, analogy-making, and artificial intelligence.",
+        "publisher": "Basic Books",
+        "genres": ["Tech", "Education"],
+        "description": "A magnificent Pulitzer Prize-winning exploration of cognitive science, formal systems, and artificial intelligence. By weaving the logic of Kurt Gödel, the visual art of M.C. Escher, and the music of J.S. Bach, Hofstadter illuminates the strange loops and self-referential paradoxes that give rise to thought, meaning, and consciousness.",
+        "isbn": "9780465026562",
+        "pub_date": "1979-04-20",
+        "pages": 777,
+        "cover_url": "https://images-na.ssl-images-amazon.com/images/I/81O17w-2Q0L.jpg",
+        "language": "English",
+        "rating": 4.6,
+        "rating_count": 140,
+    },
 ]
 
 
@@ -212,33 +334,45 @@ def seed_db():
         # 1. Create tables if not exist (as safety fallback)
         Base.metadata.create_all(bind=engine)
 
-        # 2. Check if users table already seeded
-        if db.query(User).count() > 0:
-            print("Database already seeded with initial data. Skipping seed process.")
-            return
+        # 2. Ensure Seed Users exist
+        print("Checking Seed Users...")
+        admin_user = db.query(User).filter(User.email == "admin@bookfinder.com").first()
+        if not admin_user:
+            admin_user = User(
+                email="admin@bookfinder.com",
+                hashed_password=get_password_hash("adminpassword123"),
+                full_name="Platform Admin",
+                role="admin",
+                is_active=True,
+            )
+            db.add(admin_user)
+            db.flush()
 
-        # 3. Create Seed Users
-        print("Seeding Users...")
-        admin_user = User(
-            email="admin@bookfinder.com",
-            hashed_password=get_password_hash("adminpassword123"),
-            full_name="Platform Admin",
-            role="admin",
-            is_active=True,
-        )
-        demo_user = User(
-            email="demo@bookfinder.com",
-            hashed_password=get_password_hash("demopassword123"),
-            full_name="Demo Reader",
-            role="user",
-            is_active=True,
-        )
-        db.add_all([admin_user, demo_user])
-        db.commit()
+        demo_user = db.query(User).filter(User.email == "demo@bookfinder.com").first()
+        if not demo_user:
+            demo_user = User(
+                email="demo@bookfinder.com",
+                hashed_password=get_password_hash("demopassword123"),
+                full_name="Demo Reader",
+                role="user",
+                is_active=True,
+            )
+            db.add(demo_user)
+            db.flush()
 
-        # 4. Ingest Books, Authors, Publishers, and Genres
-        print("Seeding Catalog (Authors, Publishers, Genres, Books)...")
+        # 3. Ingest Books, Authors, Publishers, and Genres (idempotent)
+        print("Checking & Seeding Catalog (Authors, Publishers, Genres, Books)...")
+        new_books_count = 0
         for item in BOOKS_DATA:
+            existing_book = (
+                db.query(Book)
+                .filter((Book.isbn == item["isbn"]) | (Book.title == item["title"]))
+                .first()
+            )
+            if existing_book:
+                continue
+
+            new_books_count += 1
             # Get or create Author
             author = db.query(Author).filter(Author.name == item["author"]).first()
             if not author:
@@ -283,7 +417,7 @@ def seed_db():
             db.add(book)
             db.flush()
 
-            # 5. Add a couple of initial mock reviews for books
+            # 4. Add initial reviews for this book
             review_text_positive = f"Absolutely loved reading '{item['title']}'. It was eye-opening and highly informative. Highly recommended for anyone interested in this topic!"
             review_text_critical = f"While '{item['title']}' contains valuable insights, I found the pace a bit slow and it became somewhat repetitive in the middle chapters."
 
@@ -297,35 +431,36 @@ def seed_db():
             review_2 = Review(
                 user_id=admin_user.id,
                 book_id=book.id,
-                rating=3,
+                rating=4,
                 review_text=review_text_critical,
                 created_at=datetime.now(UTC),
             )
             db.add_all([review_1, review_2])
 
-        # 6. Add some initial mock notifications for users
-        notif_user_1 = Notification(
-            user_id=demo_user.id,
-            title="Welcome to Aetheria!",
-            message="Welcome to Aetheria AI Book Discovery! Search, create reading lists, and ask our AI librarian anything about books.",
-            created_at=datetime.now(UTC),
-        )
-        notif_user_2 = Notification(
-            user_id=demo_user.id,
-            title="AI Recommendations Ready",
-            message="We precomputed content recommendations based on your preferences. Check them out on your dashboard!",
-            created_at=datetime.now(UTC),
-        )
-        notif_admin = Notification(
-            user_id=admin_user.id,
-            title="System Alert",
-            message="The search index database is successfully synced with the local SQLite storage.",
-            created_at=datetime.now(UTC),
-        )
-        db.add_all([notif_user_1, notif_user_2, notif_admin])
+        # 5. Add initial notifications if demo_user has none
+        if db.query(Notification).filter(Notification.user_id == demo_user.id).count() == 0:
+            notif_user_1 = Notification(
+                user_id=demo_user.id,
+                title="Welcome to Aetheria!",
+                message="Welcome to Aetheria AI Book Discovery! Search, create reading lists, and ask our AI librarian anything about books.",
+                created_at=datetime.now(UTC),
+            )
+            notif_user_2 = Notification(
+                user_id=demo_user.id,
+                title="AI Recommendations Ready",
+                message="We precomputed content recommendations based on your preferences. Check them out on your dashboard!",
+                created_at=datetime.now(UTC),
+            )
+            notif_admin = Notification(
+                user_id=admin_user.id,
+                title="System Alert",
+                message="The search index database is successfully synced with the local SQLite storage.",
+                created_at=datetime.now(UTC),
+            )
+            db.add_all([notif_user_1, notif_user_2, notif_admin])
 
         db.commit()
-        print("Database successfully seeded!")
+        print(f"Database successfully updated! Added {new_books_count} new books.")
 
     except Exception as e:
         db.rollback()
